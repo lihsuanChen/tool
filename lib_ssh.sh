@@ -35,15 +35,24 @@ check_and_setup_ssh() {
         read -p "Do you want to run ssh-copy-id now? (y/n): " SETUP_KEY
         
         if [[ "$SETUP_KEY" =~ ^[Yy]$ ]]; then
-            echo "Running ssh-copy-id..."
-            ssh-copy-id "${USER}@${IP}"
-            if [ $? -eq 0 ]; then
-                 echo -e "${GREEN}SSH Key saved successfully.${NC}"
-            else
-                 echo -e "${RED}Failed to save SSH key. You might need to enter password manually later.${NC}"
-            fi
+            install_ssh_key "$USER" "$IP"
         else
             echo "Skipping key save."
         fi
+    fi
+}
+
+# NEW FUNCTION: Directly installs key (For the --ssh flag)
+install_ssh_key() {
+    local USER=$1
+    local IP=$2
+    
+    echo -e "Running ssh-copy-id for ${YELLOW}${USER}@${IP}${NC}..."
+    ssh-copy-id "${USER}@${IP}"
+    
+    if [ $? -eq 0 ]; then
+            echo -e "${GREEN}SSH Key saved successfully.${NC}"
+    else
+            echo -e "${RED}Failed to save SSH key.${NC}"
     fi
 }
