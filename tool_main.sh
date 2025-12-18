@@ -1,19 +1,13 @@
 #!/bin/bash
 
 # =================CONFIGURATION =================
-# Global Config
 export REMOTE_USER="root"
 export BASE_IP="192.168"
 export DEFAULT_SUBNET="78"
-
-# Path to the source of the DNF update script (Local)
 export LOCAL_DNF_SCRIPT="$HOME/projects/test_automation/dnfupdate.sh"
 # ================================================
 
-# Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-# Import SSH Utilities
 source "$SCRIPT_DIR/lib_ssh.sh"
 
 # ================= HELP FUNCTION =================
@@ -26,24 +20,20 @@ print_help() {
     echo -e "${YELLOW}COMMANDS:${NC}"
     echo -e "  ${GREEN}--deploy <IP>${NC}      Builds Maven project and deploys WAR to Tomcat."
     echo -e "  ${GREEN}--dnfupdate <IP>${NC}   Transfers and runs dnfupdate.sh."
-    echo -e "  ${GREEN}--ssh <IP>${NC}         Exchanges SSH keys (ssh-copy-id) only."
+    echo -e "  ${GREEN}--ssh <IP>${NC}         Exchanges SSH keys and logs in automatically."
     echo -e "  ${GREEN}--help, -h${NC}         Show this help message."
     echo -e ""
-    echo -e "${YELLOW}IP FORMAT:${NC}"
-    echo -e "  Ex: ${GREEN}tool --deploy 11${NC}      -> Connects to ${BASE_IP}.${DEFAULT_SUBNET}.11"
 }
 
 # 1. PARSE ARGUMENTS
 MODE=$1
 IP_SUFFIX=$2
 
-# Check for Help Flag (Matches -h, --h, -help, --help)
 if [[ "$MODE" =~ ^--?h(elp)?$ ]]; then
     print_help
     exit 0
 fi
 
-# Validate inputs for other modes
 if [ -z "$MODE" ] || [ -z "$IP_SUFFIX" ]; then
     echo -e "${RED}Error: Missing arguments.${NC}"
     print_help
@@ -59,7 +49,6 @@ else
 fi
 
 export TARGET_IP
-
 echo -e "Target defined as: ${YELLOW}${TARGET_IP}${NC}"
 
 # 3. EXECUTE REQUESTED PROCESS
@@ -76,7 +65,17 @@ case "$MODE" in
         ;;
     --ssh)
         log_step "MAIN" "Starting SSH Key Exchange..."
+        # Run installation
         install_ssh_key "${REMOTE_USER}" "${TARGET_IP}"
+        
+        # Check if it succeeded (Exit code 0 means success)
+        if [ $? -eq 0 ]; then
+             log_step "MAIN" "Auto-logging into ${TARGET_IP}..."
+             # Execute SSH to log user in immediately
+             ssh "${REMOTE_USER}@${TARGET_IP}"
+        else
+             error_exit "Key exchange failed. Auto-login aborted."
+        fi
         ;;
     *)
         echo -e "${RED}Error: Unknown mode '$MODE'${NC}"
