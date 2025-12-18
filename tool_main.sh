@@ -37,11 +37,13 @@ print_help() {
 MODE=$1
 IP_SUFFIX=$2
 
-if [[ "$MODE" == "--help" || "$MODE" == "-h" ]]; then
+# Check for Help Flag (Matches -h, --h, -help, --help)
+if [[ "$MODE" =~ ^--?h(elp)?$ ]]; then
     print_help
     exit 0
 fi
 
+# Validate inputs for other modes
 if [ -z "$MODE" ] || [ -z "$IP_SUFFIX" ]; then
     echo -e "${RED}Error: Missing arguments.${NC}"
     print_help
@@ -63,23 +65,22 @@ echo -e "Target defined as: ${YELLOW}${TARGET_IP}${NC}"
 # 3. EXECUTE REQUESTED PROCESS
 case "$MODE" in
     --deploy)
-        # Check SSH first
         check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
         log_step "MAIN" "Starting Deployment Process..."
         bash "$SCRIPT_DIR/process_deploy.sh"
         ;;
     --dnfupdate)
-        # Check SSH first
         check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
         log_step "MAIN" "Starting DNF Update Process..."
         bash "$SCRIPT_DIR/process_dnfupdate.sh"
         ;;
     --ssh)
-        # Direct Key Exchange (No strict check first, just do it)
         log_step "MAIN" "Starting SSH Key Exchange..."
         install_ssh_key "${REMOTE_USER}" "${TARGET_IP}"
         ;;
     *)
-        error_exit "Unknown mode: $MODE. Run 'tool --help' for usage."
+        echo -e "${RED}Error: Unknown mode '$MODE'${NC}"
+        print_help
+        exit 1
         ;;
 esac
