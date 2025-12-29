@@ -1,48 +1,24 @@
-\# Custom Automation Tool (`tool`)
+# Custom Automation Tool (`t`)
 
+A modular shell script suite for automating Java WAR deployments, Node.js Client builds, system updates, and SSH key management.
 
+## 🚀 Features
 
-A modular shell script suite for automating Java WAR deployments, system updates, and SSH key management on remote Linux servers.
-
-
-
-\## 🚀 Features
-
-
-
-\* \*\*Smart Deployment:\*\* Builds Maven projects and automatically deploys the WAR file to a remote Tomcat server.
-
-\* \*\*System Updates:\*\* Transfers and executes maintenance scripts (e.g., `dnfupdate.sh`) on remote hosts.
-
-\* \*\*SSH Management:\*\* Auto-detects missing keys, handles `ssh-copy-id`, and auto-fixes "Host Identification Changed" errors.
-
-\* \*\*Context Aware:\*\* Prevents deployment errors by verifying your current working directory.
-
-
+* **Context-Aware Deployment:** Automatically detects if you are in the **Server** or **Client** repository and triggers the correct build/deploy workflow.
+* **System Updates:** Transfers and executes maintenance scripts (`dnfupdate.sh`) on remote hosts.
+* **Smart SSH:** Auto-detects missing keys, handles `ssh-copy-id`, and auto-fixes "Host Identification Changed" errors.
+* **Short Alias:** standardizes commands under the simple `t` alias.
 
 ---
 
+## 📂 Installation
 
+### 1. Setup Scripts
+Place all script files (`tool_main.sh`, `lib_ssh.sh`, `process_deploy.sh`, `process_dnfupdate.sh`, `setup_alias.sh`) into a directory, e.g., `~/scripts/`.
 
-\## 📂 Installation
-
-
-
-\### 1. Setup Scripts
-
-Place all script files (`tool\_main.sh`, `lib\_ssh.sh`, `process\_deploy.sh`, `process\_dnfupdate.sh`, `setup\_alias.sh`) into a single directory, for example: `~/scripts/`.
-
-
-
-\### 2. Fix Line Endings (Critical)
-
+### 2. Fix Line Endings (Critical)
 If you copied these files from Windows, run this command to remove invisible carriage returns:
-
 ```bash
-
 cd ~/scripts
-
-sed -i 's/\\r$//' \*.sh
-
-chmod +x \*.sh
-
+sed -i 's/\r$//' *.sh
+chmod +x *.sh
