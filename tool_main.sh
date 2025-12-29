@@ -15,20 +15,23 @@ print_help() {
     echo -e "${BLUE}==================================================${NC}"
     echo -e "${YELLOW}  CUSTOM DEPLOYMENT & AUTOMATION TOOL${NC}"
     echo -e "${BLUE}==================================================${NC}"
-    echo -e "Usage: tool [COMMAND] [IP_SUFFIX]"
+    echo -e "Usage: t [COMMAND] [IP_SUFFIX]"
     echo -e ""
     echo -e "${YELLOW}COMMANDS:${NC}"
-    echo -e "  ${GREEN}--deploy <IP>${NC}      Builds Maven project and deploys WAR to Tomcat."
-    echo -e "  ${GREEN}--dnfupdate <IP>${NC}   Transfers and runs dnfupdate.sh."
-    echo -e "  ${GREEN}--ssh <IP>${NC}         Exchanges SSH keys and logs in automatically."
-    echo -e "  ${GREEN}--help, -h${NC}         Show this help message."
+    echo -e "  ${GREEN}deploy <IP>${NC}      Builds Maven project and deploys WAR to Tomcat."
+    echo -e "  ${GREEN}dnfupdate <IP>${NC}   Transfers and runs dnfupdate.sh."
+    echo -e "  ${GREEN}ssh <IP>${NC}         Exchanges SSH keys and logs in automatically."
+    echo -e "  ${GREEN}--help, -help, --h, -h${NC}       Show this help message."
     echo -e ""
+    echo -e "${YELLOW}IP FORMAT:${NC}"
+    echo -e "  Ex: ${GREEN}t deploy 11${NC}      -> Connects to ${BASE_IP}.${DEFAULT_SUBNET}.11"
 }
 
 # 1. PARSE ARGUMENTS
 MODE=$1
 IP_SUFFIX=$2
 
+# Check for Help Flag (Matches -h, --h, -help, --help)
 if [[ "$MODE" =~ ^--?h(elp)?$ ]]; then
     print_help
     exit 0
@@ -53,33 +56,30 @@ echo -e "Target defined as: ${YELLOW}${TARGET_IP}${NC}"
 
 # 3. EXECUTE REQUESTED PROCESS
 case "$MODE" in
-    --deploy)
+    deploy)
         check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
         log_step "MAIN" "Starting Deployment Process..."
         bash "$SCRIPT_DIR/process_deploy.sh"
         ;;
-    --dnfupdate)
+    dnfupdate)
         check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
         log_step "MAIN" "Starting DNF Update Process..."
         bash "$SCRIPT_DIR/process_dnfupdate.sh"
         ;;
-    --ssh)
+    ssh)
         log_step "MAIN" "Starting SSH Key Exchange..."
-        # Run installation
         install_ssh_key "${REMOTE_USER}" "${TARGET_IP}"
-        
-        # Check if it succeeded (Exit code 0 means success)
+
         if [ $? -eq 0 ]; then
              log_step "MAIN" "Auto-logging into ${TARGET_IP}..."
-             # Execute SSH to log user in immediately
              ssh "${REMOTE_USER}@${TARGET_IP}"
         else
              error_exit "Key exchange failed. Auto-login aborted."
         fi
         ;;
     *)
-        echo -e "${RED}Error: Unknown mode '$MODE'${NC}"
-        print_help
+        echo -e "${RED}Error: Unknown command '$MODE'${NC}"
+        echo -e "Did you mean 't deploy', 't ssh', or 't dnfupdate'?"
         exit 1
         ;;
 esac
