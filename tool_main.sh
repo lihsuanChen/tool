@@ -21,10 +21,12 @@ print_help() {
     echo -e "  ${GREEN}deploy <IP>${NC}      Builds Maven project and deploys WAR to Tomcat."
     echo -e "  ${GREEN}dnfupdate <IP>${NC}   Transfers and runs dnfupdate.sh."
     echo -e "  ${GREEN}ssh <IP>${NC}         Exchanges SSH keys and logs in automatically."
-    echo -e "  ${GREEN}--help, -help, --h, -h${NC}       Show this help message."
+    echo -e "  ${GREEN}--help, -help, --h, -h${NC} Show this help message."
     echo -e ""
     echo -e "${YELLOW}IP FORMAT:${NC}"
-    echo -e "  Ex: ${GREEN}t deploy 11${NC}      -> Connects to ${BASE_IP}.${DEFAULT_SUBNET}.11"
+    echo -e "  Default Base: ${BASE_IP}.${DEFAULT_SUBNET}.x"
+    echo -e "  Ex: ${GREEN}t ssh 11${NC}      -> Connect to ${BASE_IP}.${DEFAULT_SUBNET}.11"
+    echo -e "  Ex: ${GREEN}t ssh 79.88${NC}   -> Connect to ${BASE_IP}.79.88"
 }
 
 # 1. PARSE ARGUMENTS
