@@ -25,8 +25,14 @@ if [[ ! "$CONFIRM" =~ ^[Yy]$ ]]; then
     exit 0
 fi
 
-# 1. FORCE COPY FILES (SCP)
-log_step "UPLOAD" "Force syncing files (SCP)..."
+# 1. RSYNC FILES
+log_step "RSYNC" "Syncing Migration Files..."
+
+# Options:
+# -a: Archive (recursive, preserves permissions)
+# -v: Verbose (shows files transferring)
+# -c: Checksum (compares content, essential for detecting changes correctly)
+RSYNC_OPTS="-avc -e ssh"
 
 if [ -n "$DB_VERSION" ]; then
     # Case A: Specific Version (e.g., 940)
@@ -38,25 +44,21 @@ if [ -n "$DB_VERSION" ]; then
     fi
 
     echo -e "Source Path:  ${YELLOW}${LOCAL_SRC}${NC}"
-    echo -e "Uploading:    ${YELLOW}${TARGET_FOLDER}${NC}..."
+    echo -e "Syncing ONLY: ${YELLOW}${TARGET_FOLDER}${NC}"
 
-    # 1. Remove remote folder first to ensure clean state (optional but safer)
-    ssh "${REMOTE_USER}@${TARGET_IP}" "rm -rf ${REMOTE_DB_DEST}/${TARGET_FOLDER}"
-
-    # 2. Copy the folder fresh
-    # Note: scp -r source dest_parent/ creates source inside dest_parent
-    scp -r "${LOCAL_SRC}" "${REMOTE_USER}@${TARGET_IP}:${REMOTE_DB_DEST}/"
+    # Sync the folder itself into the remote parent directory
+    rsync $RSYNC_OPTS "${LOCAL_SRC}" "${REMOTE_USER}@${TARGET_IP}:${REMOTE_DB_DEST}/"
 
 else
     # Case B: All Versions
-    echo -e "Source Path:  ${YELLOW}${LOCAL_CHANGESETS}${NC}"
-    echo -e "Uploading:    ${YELLOW}ALL changesets${NC}..."
+    echo -e "Source Path:  ${YELLOW}${LOCAL_CHANGESETS}/${NC}"
+    echo -e "Syncing ${YELLOW}ALL changesets${NC}..."
 
-    # Warning: syncing ALL changesets via SCP might be slow if there are many files
-    scp -r "${LOCAL_CHANGESETS}/"* "${REMOTE_USER}@${TARGET_IP}:${REMOTE_DB_DEST}/"
+    # Sync contents of changesets into remote changesets
+    rsync $RSYNC_OPTS "${LOCAL_CHANGESETS}/" "${REMOTE_USER}@${TARGET_IP}:${REMOTE_DB_DEST}/"
 fi
 
-if [ $? -ne 0 ]; then error_exit "SCP transfer failed."; fi
+if [ $? -ne 0 ]; then error_exit "Rsync failed."; fi
 
 # 2. EXECUTE MIGRATION SCRIPT
 log_step "REMOTE" "Executing Database Migration..."
