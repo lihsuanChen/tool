@@ -22,7 +22,7 @@ print_help() {
     echo -e "                     ${YELLOW}[Server Mode]${NC} .../server"
     echo -e "                     ${YELLOW}[Client Mode]${NC} .../dctrack_app_client"
     echo -e "                     ${YELLOW}[DB Mode]${NC}     .../dctrack_database"
-    echo -e "                       ${WHITE}Flag: -f <ver>${NC}  Sync specific version (e.g., -f 930)"
+    echo -e "                       ${WHITE}Flag: -f <ver>${NC}  Migrate specific version (e.g., -f 930)"
     echo -e ""
     echo -e "  ${GREEN}dnfupdate <IP>${NC}   Transfers and runs dnfupdate.sh."
     echo -e "  ${GREEN}ssh <IP>${NC}         Exchanges SSH keys and logs in automatically."
