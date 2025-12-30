@@ -9,11 +9,21 @@ if [ ! -d "$LOCAL_CHANGESETS" ]; then
     error_exit "Directory '$LOCAL_CHANGESETS' not found.\nEnsure you are in the root of 'dctrack_database'."
 fi
 
+# ================= NORMALIZE VERSION =================
+# Logic: Database folders (dctrack935) do NOT use dots.
+# We remove any dots from the user input (9.3.5 -> 935).
+NORMALIZED_VERSION=""
+if [ -n "$TARGET_VERSION" ]; then
+    # Bash substitution: replace all '.' with empty string
+    NORMALIZED_VERSION="${TARGET_VERSION//./}"
+fi
+# =====================================================
+
 # 0. SAFETY CHECK
 echo -e "\n${RED}!!! WARNING: DATABASE MIGRATION !!!${NC}"
 echo -e "Target Server:  ${YELLOW}${TARGET_IP}${NC}"
-if [ -n "$TARGET_VERSION" ]; then
-    echo -e "Target Version: ${YELLOW}dctrack${TARGET_VERSION}${NC}"
+if [ -n "$NORMALIZED_VERSION" ]; then
+    echo -e "Target Version: ${YELLOW}dctrack${NORMALIZED_VERSION}${NC} (Input: $TARGET_VERSION)"
 else
     echo -e "Target Version: ${YELLOW}ALL CHANGESETS${NC}"
 fi
@@ -29,9 +39,9 @@ fi
 log_step "RSYNC" "Syncing Migration Files..."
 RSYNC_OPTS="-avc -e ssh"
 
-if [ -n "$TARGET_VERSION" ]; then
-    # Case A: Specific Version (e.g., 940)
-    TARGET_FOLDER="dctrack${TARGET_VERSION}"
+if [ -n "$NORMALIZED_VERSION" ]; then
+    # Case A: Specific Version
+    TARGET_FOLDER="dctrack${NORMALIZED_VERSION}"
     LOCAL_SRC="${LOCAL_CHANGESETS}/${TARGET_FOLDER}"
 
     if [ ! -d "$LOCAL_SRC" ]; then
