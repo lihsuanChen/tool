@@ -20,8 +20,11 @@ print_help() {
     echo -e "${YELLOW}COMMANDS:${NC}"
     echo -e "  ${GREEN}deploy <IP>${NC}      Smart Build & Deploy based on current directory:"
     echo -e "                     ${YELLOW}[Server Mode]${NC} .../server"
+    echo -e "                       -> Maven build (WAR) -> ${BLUE}/var/lib/tomcat10/webapps${NC}"
     echo -e "                     ${YELLOW}[Client Mode]${NC} .../dctrack_app_client"
+    echo -e "                       -> NPM build (dist)  -> ${BLUE}/opt/raritan/dcTrack/appClient${NC}"
     echo -e "                     ${YELLOW}[DB Mode]${NC}     .../dctrack_database"
+    echo -e "                       -> Force Upload (SCP)-> ${BLUE}/var/oculan/raritan/liquibase/changesets${NC}"
     echo -e "                       ${WHITE}Flag: -f <ver>${NC}  Migrate specific version (e.g., -f 930)"
     echo -e ""
     echo -e "  ${GREEN}dnfupdate <IP>${NC}   Transfers and runs dnfupdate.sh."
@@ -29,7 +32,8 @@ print_help() {
     echo -e "  ${GREEN}--help, -h${NC}       Show this help message."
     echo -e ""
     echo -e "${YELLOW}IP FORMAT:${NC}"
-    echo -e "  Ex: ${GREEN}t deploy 11 -f 930${NC}"
+    echo -e "  Default Base: ${BASE_IP}.${DEFAULT_SUBNET}.x"
+    echo -e "  Ex: ${GREEN}td 11 -f 930${NC}"
 }
 
 # ================= ARGUMENT PARSING =================
@@ -44,7 +48,7 @@ while [[ $# -gt 0 ]]; do
       MODE="$1"
       shift # Past argument
       ;;
-    -f|-v|--version)  # ACCEPT -f OR -v OR --version
+    -f|-v|--version)
       export DB_VERSION="$2"
       shift 2 # Past flag and value
       ;;
