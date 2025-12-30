@@ -8,27 +8,31 @@ source "$SCRIPT_DIR/lib_ssh.sh"
 CURRENT_DIR=$(pwd)
 BASENAME=$(basename "$CURRENT_DIR")
 
-# Check 1: SERVER Mode
+# Check 1: SERVER Mode (Maven)
+# Fingerprint: Folder is named 'server' AND contains 'dcTrackApp'
 if [ "$BASENAME" == "server" ] && [ -d "./dcTrackApp" ]; then
     log_step "DEPLOY" "Detected Repository Type: ${YELLOW}SERVER${NC}"
     bash "$SCRIPT_DIR/deploy_server.sh"
 
-# Check 2: CLIENT Mode
-elif [[ "$CURRENT_DIR" == *"/dctrack_app_client" ]]; then
+# Check 2: CLIENT Mode (Node.js)
+# Fingerprint: Folder name contains 'client' AND contains 'package.json'
+elif [[ "$CURRENT_DIR" == *"client"* ]] && [ -f "./package.json" ]; then
     log_step "DEPLOY" "Detected Repository Type: ${YELLOW}CLIENT${NC}"
     bash "$SCRIPT_DIR/deploy_client.sh"
 
-# Check 3: DB MIGRATION Mode
-elif [[ "$CURRENT_DIR" == *"/dctrack_database" ]]; then
+# Check 3: DB MIGRATION Mode (Liquibase)
+# Fingerprint: The unique changesets directory structure exists
+elif [ -d "./src/files/opt/raritan/liquibase/changesets" ]; then
     log_step "DEPLOY" "Detected Repository Type: ${YELLOW}DATABASE${NC}"
     bash "$SCRIPT_DIR/deploy_database.sh"
 
 else
     echo -e "${RED}CRITICAL ERROR: Unknown Repository Context${NC}"
     echo "Current directory: $CURRENT_DIR"
-    echo "To deploy, you must be in one of these locations:"
-    echo -e "  1. .../server"
-    echo -e "  2. .../dctrack_app_client"
-    echo -e "  3. .../dctrack_database"
+    echo "Could not identify the project type based on files."
+    echo "Required Fingerprints:"
+    echo -e "  1. Server:   Folder 'server' + 'dcTrackApp' subfolder"
+    echo -e "  2. Client:   Folder name '*client*' + 'package.json'"
+    echo -e "  3. Database: Folder './src/files/opt/raritan/liquibase/changesets'"
     exit 1
 fi
