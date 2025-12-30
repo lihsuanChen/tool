@@ -7,8 +7,20 @@ REMOTE_CLIENT_DEST="/opt/raritan/dcTrack/appClient"
 # Validation
 if [ ! -f "./package.json" ]; then error_exit "Missing package.json"; fi
 
-# SET VERSION (Default to 9.3.5 if user didn't provide -v)
-CLIENT_VERSION="${TARGET_VERSION:-9.3.5}"
+# ================= NORMALIZE VERSION =================
+# Logic: Client needs Dots (9.3.5).
+# If user provided 3 digits (935) via -v, we convert to 9.3.5.
+# If user provided dots (9.3.5), we keep it as is.
+RAW_VERSION="${TARGET_VERSION:-9.3.5}"
+
+if [[ "$RAW_VERSION" =~ ^[0-9]{3}$ ]]; then
+    # Insert dots: 935 -> 9.3.5
+    # ${VAR:start:length} extracts substrings
+    CLIENT_VERSION="${RAW_VERSION:0:1}.${RAW_VERSION:1:1}.${RAW_VERSION:2:1}"
+else
+    CLIENT_VERSION="$RAW_VERSION"
+fi
+# =====================================================
 
 # 1. NPM BUILD
 log_step "BUILD" "Building Client (Version: ${YELLOW}${CLIENT_VERSION}${NC})..."
@@ -16,7 +28,7 @@ log_step "BUILD" "Building Client (Version: ${YELLOW}${CLIENT_VERSION}${NC})..."
 echo "Running npm install..." && npm install
 echo "Running npm rebuild node-sass..." && npm rebuild node-sass
 
-# UPDATED COMMAND (Using -- --env version=...)
+# Command uses the NORMALIZED version (9.3.5)
 CMD="npm run source-map -- --env version=${CLIENT_VERSION}"
 echo "Running: ${CMD}"
 $CMD
