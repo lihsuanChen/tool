@@ -15,35 +15,54 @@ print_help() {
     echo -e "${BLUE}==================================================${NC}"
     echo -e "${YELLOW}  CUSTOM DEPLOYMENT & AUTOMATION TOOL${NC}"
     echo -e "${BLUE}==================================================${NC}"
-    echo -e "Usage: t [COMMAND] [IP_SUFFIX]"
+    echo -e "Usage: t [COMMAND] [IP_SUFFIX] [FLAGS]"
     echo -e ""
     echo -e "${YELLOW}COMMANDS:${NC}"
     echo -e "  ${GREEN}deploy <IP>${NC}      Smart Build & Deploy based on current directory:"
-    echo -e "                     ${YELLOW}[Server Mode]${NC} If current folder is '.../server':"
-    echo -e "                       -> Maven build (WAR) -> ${BLUE}/var/lib/tomcat10/webapps${NC}"
-    echo -e "                     ${YELLOW}[Client Mode]${NC} If current folder is '.../dctrack_app_client':"
-    echo -e "                       -> NPM build (dist)  -> ${BLUE}/opt/raritan/dcTrack/appClient${NC}"
+    echo -e "                     ${YELLOW}[Server Mode]${NC} .../server"
+    echo -e "                     ${YELLOW}[Client Mode]${NC} .../dctrack_app_client"
+    echo -e "                     ${YELLOW}[DB Mode]${NC}     .../dctrack_database"
+    echo -e "                       ${WHITE}Flag: -f <ver>${NC}  Sync specific version (e.g., -f 930)"
     echo -e ""
     echo -e "  ${GREEN}dnfupdate <IP>${NC}   Transfers and runs dnfupdate.sh."
     echo -e "  ${GREEN}ssh <IP>${NC}         Exchanges SSH keys and logs in automatically."
-    echo -e "  ${GREEN}--help, -help, --h, -h${NC} Show this help message."
+    echo -e "  ${GREEN}--help, -h${NC}       Show this help message."
     echo -e ""
     echo -e "${YELLOW}IP FORMAT:${NC}"
-    echo -e "  Default Base: ${BASE_IP}.${DEFAULT_SUBNET}.x"
-    echo -e "  Ex: ${GREEN}t ssh 11${NC}      -> Connect to ${BASE_IP}.${DEFAULT_SUBNET}.11"
-    echo -e "  Ex: ${GREEN}t ssh 79.88${NC}   -> Connect to ${BASE_IP}.79.88"
+    echo -e "  Ex: ${GREEN}t deploy 11 -f 930${NC}"
 }
 
-# 1. PARSE ARGUMENTS
-MODE=$1
-IP_SUFFIX=$2
+# ================= ARGUMENT PARSING =================
+MODE=""
+IP_SUFFIX=""
+export DB_VERSION=""
 
-# Check for Help Flag (Matches -h, --h, -help, --help)
-if [[ "$MODE" =~ ^--?h(elp)?$ ]]; then
-    print_help
-    exit 0
-fi
+# Loop through all arguments
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    deploy|dnfupdate|ssh)
+      MODE="$1"
+      shift # Past argument
+      ;;
+    -f|-v|--version)  # ACCEPT -f OR -v OR --version
+      export DB_VERSION="$2"
+      shift 2 # Past flag and value
+      ;;
+    -h|--help|--h|-help)
+      print_help
+      exit 0
+      ;;
+    *)
+      # If it's not a flag or known command, assume it's the IP suffix
+      if [[ -z "$IP_SUFFIX" ]]; then
+          IP_SUFFIX="$1"
+      fi
+      shift
+      ;;
+  esac
+done
 
+# Validation
 if [ -z "$MODE" ] || [ -z "$IP_SUFFIX" ]; then
     echo -e "${RED}Error: Missing arguments.${NC}"
     print_help
@@ -76,7 +95,6 @@ case "$MODE" in
     ssh)
         log_step "MAIN" "Starting SSH Key Exchange..."
         install_ssh_key "${REMOTE_USER}" "${TARGET_IP}"
-
         if [ $? -eq 0 ]; then
              log_step "MAIN" "Auto-logging into ${TARGET_IP}..."
              ssh "${REMOTE_USER}@${TARGET_IP}"
@@ -86,7 +104,6 @@ case "$MODE" in
         ;;
     *)
         echo -e "${RED}Error: Unknown command '$MODE'${NC}"
-        echo -e "Did you mean 't deploy', 't ssh', or 't dnfupdate'?"
         exit 1
         ;;
 esac
