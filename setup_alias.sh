@@ -1,14 +1,10 @@
 #!/bin/bash
 
 # ================= CONFIGURATION =================
-ALIAS_NAME="t"  # Changed from 'tool' to 't'
 TARGET_SHELL_RC="$HOME/.bashrc"
-# Get the absolute path of the directory where THIS script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MAIN_TOOL_PATH="$SCRIPT_DIR/tool_main.sh"
 # =================================================
-
-echo "Setting up alias '$ALIAS_NAME'..."
 
 # 1. Verify the main tool exists
 if [ ! -f "$MAIN_TOOL_PATH" ]; then
@@ -17,21 +13,34 @@ if [ ! -f "$MAIN_TOOL_PATH" ]; then
     exit 1
 fi
 
-# 2. Check for duplicate alias in .bashrc
-if grep -q "alias $ALIAS_NAME=" "$TARGET_SHELL_RC"; then
-    echo -e "\033[1;33mWARNING: The alias '$ALIAS_NAME' is already defined in $TARGET_SHELL_RC.\033[0m"
-    echo "No changes were made to avoid duplicates."
-    echo "Current entry:"
-    grep "alias $ALIAS_NAME=" "$TARGET_SHELL_RC"
-    exit 0
-fi
+# Function to safely add an alias
+add_alias() {
+    local NAME=$1
+    local COMMAND=$2
 
-# 3. Append the alias if not found
-echo "" >> "$TARGET_SHELL_RC"
-echo "# Custom Automation Tool Alias" >> "$TARGET_SHELL_RC"
-echo "alias $ALIAS_NAME='$MAIN_TOOL_PATH'" >> "$TARGET_SHELL_RC"
+    echo "Configuring alias '$NAME'..."
 
-echo -e "\033[0;32mSUCCESS: Alias '$ALIAS_NAME' added to $TARGET_SHELL_RC\033[0m"
+    # Check for duplicate alias in .bashrc
+    if grep -q "alias $NAME=" "$TARGET_SHELL_RC"; then
+        echo -e "  \033[1;33mWARNING: Alias '$NAME' already exists in .bashrc. Skipping.\033[0m"
+    else
+        # FIX: We now explicitly wrap the entire command in single quotes
+        echo "alias $NAME='$COMMAND'" >> "$TARGET_SHELL_RC"
+        echo -e "  \033[0;32mSUCCESS: Alias '$NAME' added.\033[0m"
+    fi
+}
+
 echo "---------------------------------------------------"
-echo "To use the new command immediately, run this command:"
+echo "Setting up Custom Automation Tool Aliases"
+echo "---------------------------------------------------"
+
+# 2. Add 't'
+add_alias "t" "$MAIN_TOOL_PATH"
+
+# 3. Add 'td'
+# NOTE: We pass the string exactly as we want it inside the quotes
+add_alias "td" "$MAIN_TOOL_PATH deploy"
+
+echo "---------------------------------------------------"
+echo "To use the new commands immediately, run:"
 echo -e "\033[1;34msource $TARGET_SHELL_RC\033[0m"
