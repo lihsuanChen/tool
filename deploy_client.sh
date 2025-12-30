@@ -7,11 +7,21 @@ REMOTE_CLIENT_DEST="/opt/raritan/dcTrack/appClient"
 # Validation
 if [ ! -f "./package.json" ]; then error_exit "Missing package.json"; fi
 
+# SET VERSION (Default to 9.3.5 if user didn't provide -v)
+CLIENT_VERSION="${TARGET_VERSION:-9.3.5}"
+
 # 1. NPM BUILD
-log_step "BUILD" "Building Client (NPM)..."
+log_step "BUILD" "Building Client (Version: ${YELLOW}${CLIENT_VERSION}${NC})..."
+
 echo "Running npm install..." && npm install
 echo "Running npm rebuild node-sass..." && npm rebuild node-sass
-echo "Running npm run source-map..." && npm run source-map
+
+# UPDATED COMMAND (Using -- --env version=...)
+CMD="npm run source-map -- --env version=${CLIENT_VERSION}"
+echo "Running: ${CMD}"
+$CMD
+
+if [ $? -ne 0 ]; then error_exit "npm run source-map failed."; fi
 
 if [ ! -d "./dist" ]; then error_exit "Dist folder missing."; fi
 

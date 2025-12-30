@@ -23,9 +23,10 @@ print_help() {
     echo -e "                       -> Maven build (WAR) -> ${BLUE}/var/lib/tomcat10/webapps${NC}"
     echo -e "                     ${YELLOW}[Client Mode]${NC} .../dctrack_app_client"
     echo -e "                       -> NPM build (dist)  -> ${BLUE}/opt/raritan/dcTrack/appClient${NC}"
+    echo -e "                       ${WHITE}Flag: -v <ver>${NC}  Set version (Default: 9.3.5)"
     echo -e "                     ${YELLOW}[DB Mode]${NC}     .../dctrack_database"
     echo -e "                       -> Rsync changesets  -> ${BLUE}/var/oculan/raritan/liquibase/changesets${NC}"
-    echo -e "                       ${WHITE}Flag: -f <ver>${NC}  Migrate specific version (e.g., -f 930)"
+    echo -e "                       ${WHITE}Flag: -v <ver>${NC}  Migrate specific folder (e.g., -v 940)"
     echo -e ""
     echo -e "  ${GREEN}dnfupdate <IP>${NC}   Transfers and runs dnfupdate.sh."
     echo -e "  ${GREEN}ssh <IP>${NC}         Exchanges SSH keys and logs in automatically."
@@ -33,18 +34,18 @@ print_help() {
     echo -e ""
     echo -e "${YELLOW}IP FORMAT:${NC}"
     echo -e "  Default Base: ${BASE_IP}.${DEFAULT_SUBNET}.x"
-    echo -e "  Ex: ${GREEN}td 11 -f 930${NC}"
+    echo -e "  Ex: ${GREEN}td 11 -v 9.3.5${NC}"
 }
 
 # ================= ARGUMENT PARSING =================
 MODE=""
 IP_SUFFIX=""
-export DB_VERSION=""
+export TARGET_VERSION=""
 
 while [[ $# -gt 0 ]]; do
   case $1 in
     deploy|dnfupdate|ssh) MODE="$1"; shift ;;
-    -f|-v|--version) export DB_VERSION="$2"; shift 2 ;;
+    -f|-v|--version) export TARGET_VERSION="$2"; shift 2 ;;
     -h|--help|--h|-help) print_help; exit 0 ;;
     *) if [[ -z "$IP_SUFFIX" ]]; then IP_SUFFIX="$1"; fi; shift ;;
   esac

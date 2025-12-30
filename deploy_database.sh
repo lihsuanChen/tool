@@ -12,8 +12,8 @@ fi
 # 0. SAFETY CHECK
 echo -e "\n${RED}!!! WARNING: DATABASE MIGRATION !!!${NC}"
 echo -e "Target Server:  ${YELLOW}${TARGET_IP}${NC}"
-if [ -n "$DB_VERSION" ]; then
-    echo -e "Target Version: ${YELLOW}dctrack${DB_VERSION}${NC}"
+if [ -n "$TARGET_VERSION" ]; then
+    echo -e "Target Version: ${YELLOW}dctrack${TARGET_VERSION}${NC}"
 else
     echo -e "Target Version: ${YELLOW}ALL CHANGESETS${NC}"
 fi
@@ -27,16 +27,11 @@ fi
 
 # 1. RSYNC FILES
 log_step "RSYNC" "Syncing Migration Files..."
-
-# Options:
-# -a: Archive (recursive, preserves permissions)
-# -v: Verbose (shows files transferring)
-# -c: Checksum (compares content, essential for detecting changes correctly)
 RSYNC_OPTS="-avc -e ssh"
 
-if [ -n "$DB_VERSION" ]; then
+if [ -n "$TARGET_VERSION" ]; then
     # Case A: Specific Version (e.g., 940)
-    TARGET_FOLDER="dctrack${DB_VERSION}"
+    TARGET_FOLDER="dctrack${TARGET_VERSION}"
     LOCAL_SRC="${LOCAL_CHANGESETS}/${TARGET_FOLDER}"
 
     if [ ! -d "$LOCAL_SRC" ]; then
@@ -46,7 +41,6 @@ if [ -n "$DB_VERSION" ]; then
     echo -e "Source Path:  ${YELLOW}${LOCAL_SRC}${NC}"
     echo -e "Syncing ONLY: ${YELLOW}${TARGET_FOLDER}${NC}"
 
-    # Sync the folder itself into the remote parent directory
     rsync $RSYNC_OPTS "${LOCAL_SRC}" "${REMOTE_USER}@${TARGET_IP}:${REMOTE_DB_DEST}/"
 
 else
@@ -54,7 +48,6 @@ else
     echo -e "Source Path:  ${YELLOW}${LOCAL_CHANGESETS}/${NC}"
     echo -e "Syncing ${YELLOW}ALL changesets${NC}..."
 
-    # Sync contents of changesets into remote changesets
     rsync $RSYNC_OPTS "${LOCAL_CHANGESETS}/" "${REMOTE_USER}@${TARGET_IP}:${REMOTE_DB_DEST}/"
 fi
 
