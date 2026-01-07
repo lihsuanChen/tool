@@ -24,48 +24,58 @@ cmd_search() {
     echo -e "${C_BORDER}==================================================${C_RESET}"
     if [ -z "$RAW_INPUT" ]; then
         echo -e "  ${C_TITLE}COMMAND CHEATSHEET: ${C_HEADER}FULL LIST${C_RESET}"
+        # For full list, just cat the file
         MATCHES=$(cat "$CMD_LIBRARY")
     else
         echo -e "  ${C_TITLE}SEARCHING FOR: ${C_KEYWORD}'$RAW_INPUT'${C_RESET}"
 
         # === PHASE 1: STRICT SEARCH (AND) ===
-        # We use awk to check if ALL words in input exist in the line
-        # It also tracks the current section header
-
-        # Convert input "find the file" -> "find" "the" "file"
+        # Check if there are exact matches containing ALL words
         MATCHES=$(awk -v query="$RAW_INPUT" '
-            BEGIN {
-                split(tolower(query), words, " "); # Split query into array
-            }
-            /^#/ { head=$0; printed=0; next }      # Store header, don not print yet
+            BEGIN { split(tolower(query), words, " ") }
+            /^#/ { head=$0; next }
             {
-                line = tolower($0);
-                all_found = 1;
+                line = tolower($0); all_found = 1;
                 for (i in words) {
                     if (index(line, words[i]) == 0) { all_found = 0; break; }
                 }
                 if (all_found) {
-                    if (head && !printed) { print head; printed=1 }
-                    print $0
+                    if (head) print head;
+                    print $0; head="" # Clear head so we do not duplicate it
                 }
             }
         ' "$CMD_LIBRARY")
 
-        # === PHASE 2: FALLBACK TO PARTIAL (OR) ===
+        # === PHASE 2: BEST MATCH (SCORING) ===
         if [ -z "$MATCHES" ]; then
             echo -e "${C_BORDER}--------------------------------------------------${C_RESET}"
-            echo -e "  ${C_WARN}! No exact matches. Showing partials:${C_RESET}"
+            echo -e "  ${C_WARN}! No exact matches. Showing top 10 best matches:${C_RESET}"
 
-            # Regex for OR logic: "find the docker" -> "find|the|docker"
-            OR_REGEX=$(echo "$RAW_INPUT" | tr -s ' ' '|' | tr '[:upper:]' '[:lower:]')
+            # 1. Score each line based on keyword hits
+            # 2. Sort by Score (Desc) -> Header (Asc)
+            # 3. Take Top 10
+            # 4. Strip the score prefix to prep for display
 
-            MATCHES=$(awk -v regex="$OR_REGEX" '
-                /^#/ { head=$0; printed=0; next }
-                tolower($0) ~ regex {
-                    if (head && !printed) { print head; printed=1 }
-                    print $0
+            MATCHES=$(awk -v query="$RAW_INPUT" '
+                BEGIN { split(tolower(query), words, " ") }
+                /^#/ { head=$0; next }
+                {
+                    line = tolower($0)
+                    score = 0
+                    for (i in words) {
+                        if (index(line, words[i]) > 0) score++
+                    }
+                    if (score > 0) {
+                        # Output: Score @@@ Header @@@ Line content
+                        print score "@@@" head "@@@" $0
+                    }
                 }
-            ' "$CMD_LIBRARY")
+            ' "$CMD_LIBRARY" | sort -rn -t"@" -k1 | head -n 10 | awk -F"@@@" '{
+                # Reconstruct output: Header \n Line
+                # Only print header if it is different from the last one we printed
+                if ($2 != last_head) { print $2; last_head=$2 }
+                print $3
+            }')
         fi
     fi
     echo -e "${C_BORDER}==================================================${C_RESET}"
@@ -75,12 +85,13 @@ cmd_search() {
         return
     fi
 
-    # 3. Parse and Print
+    # 3. Parse and Print Loop
+    # We use a temp file or process substitution to handle the reading
     echo "$MATCHES" | while IFS='|' read -r desc cmd; do
         desc=$(echo "$desc" | xargs)
         cmd=$(echo "$cmd" | xargs)
 
-        # Handle Headers (Lines starting with #)
+        # Handle Headers
         if [[ "$desc" == \#* ]]; then
             CLEAN_HEADER="${desc//# /}"
             echo -e "\n${C_HEADER}=== ${CLEAN_HEADER} ===${C_RESET}"
@@ -91,7 +102,7 @@ cmd_search() {
         if [ -n "$desc" ] && [ -n "$cmd" ]; then
             echo -e "${C_DESC}${desc}${C_RESET}"
             echo -e "  ${C_CMD}> ${cmd}${C_RESET}"
-            echo ""
         fi
     done
+    echo ""
 }
