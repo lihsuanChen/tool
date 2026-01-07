@@ -24,13 +24,11 @@ cmd_search() {
     echo -e "${C_BORDER}==================================================${C_RESET}"
     if [ -z "$RAW_INPUT" ]; then
         echo -e "  ${C_TITLE}COMMAND CHEATSHEET: ${C_HEADER}FULL LIST${C_RESET}"
-        # For full list, just cat the file
         MATCHES=$(cat "$CMD_LIBRARY")
     else
         echo -e "  ${C_TITLE}SEARCHING FOR: ${C_KEYWORD}'$RAW_INPUT'${C_RESET}"
 
         # === PHASE 1: STRICT SEARCH (AND) ===
-        # Check if there are exact matches containing ALL words
         MATCHES=$(awk -v query="$RAW_INPUT" '
             BEGIN { split(tolower(query), words, " ") }
             /^#/ { head=$0; next }
@@ -41,7 +39,7 @@ cmd_search() {
                 }
                 if (all_found) {
                     if (head) print head;
-                    print $0; head="" # Clear head so we do not duplicate it
+                    print $0; head=""
                 }
             }
         ' "$CMD_LIBRARY")
@@ -50,11 +48,6 @@ cmd_search() {
         if [ -z "$MATCHES" ]; then
             echo -e "${C_BORDER}--------------------------------------------------${C_RESET}"
             echo -e "  ${C_WARN}! No exact matches. Showing top 10 best matches:${C_RESET}"
-
-            # 1. Score each line based on keyword hits
-            # 2. Sort by Score (Desc) -> Header (Asc)
-            # 3. Take Top 10
-            # 4. Strip the score prefix to prep for display
 
             MATCHES=$(awk -v query="$RAW_INPUT" '
                 BEGIN { split(tolower(query), words, " ") }
@@ -66,13 +59,10 @@ cmd_search() {
                         if (index(line, words[i]) > 0) score++
                     }
                     if (score > 0) {
-                        # Output: Score @@@ Header @@@ Line content
                         print score "@@@" head "@@@" $0
                     }
                 }
             ' "$CMD_LIBRARY" | sort -rn -t"@" -k1 | head -n 10 | awk -F"@@@" '{
-                # Reconstruct output: Header \n Line
-                # Only print header if it is different from the last one we printed
                 if ($2 != last_head) { print $2; last_head=$2 }
                 print $3
             }')
@@ -85,11 +75,11 @@ cmd_search() {
         return
     fi
 
-    # 3. Parse and Print Loop
-    # We use a temp file or process substitution to handle the reading
+    # 3. Parse and Print
     echo "$MATCHES" | while IFS='|' read -r desc cmd; do
-        desc=$(echo "$desc" | xargs)
-        cmd=$(echo "$cmd" | xargs)
+        # FIX: Use sed instead of xargs to trim whitespace (preserves backslashes)
+        desc=$(echo "$desc" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        cmd=$(echo "$cmd" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
 
         # Handle Headers
         if [[ "$desc" == \#* ]]; then

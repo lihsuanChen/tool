@@ -24,7 +24,7 @@ add_alias() {
     if grep -q "alias $NAME=" "$TARGET_SHELL_RC"; then
         echo -e "  \033[1;33mWARNING: Alias '$NAME' already exists in .bashrc. Skipping.\033[0m"
     else
-        # FIX: We now explicitly wrap the entire command in single quotes
+        # Explicitly wrap the entire command in single quotes
         echo "alias $NAME='$COMMAND'" >> "$TARGET_SHELL_RC"
         echo -e "  \033[0;32mSUCCESS: Alias '$NAME' added.\033[0m"
     fi
@@ -34,12 +34,14 @@ echo "---------------------------------------------------"
 echo "Setting up Custom Automation Tool Aliases"
 echo "---------------------------------------------------"
 
-# 2. Add 't'
+# 1. Add 't'
 add_alias "t" "$MAIN_TOOL_PATH"
 
-# 3. Add 'td'
-# NOTE: We pass the string exactly as we want it inside the quotes
+# 2. Add 'td'
 add_alias "td" "$MAIN_TOOL_PATH deploy"
+
+# 3. Add 'tf' (NEW: Tool Find)
+add_alias "tf" "$MAIN_TOOL_PATH find"
 
 echo "---------------------------------------------------"
 echo "To use the new commands immediately, run:"

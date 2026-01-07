@@ -3,6 +3,8 @@ cat <<EOF > ~/scripts/my_commands.txt
 Recursive search for string | grep -rnw . -e "search_pattern"
 Find files modified in last 24h | find . -mtime -1
 Find files larger than 100MB | find . -type f -size +100M
+Find files by partial name (glob) | find . -name "*pattern*"
+Find files by partial path (grep) | find . | grep "partial_name"
 Extract tar.gz archive | tar -xzvf archive.tar.gz
 Compress folder to tar.gz | tar -czvf archive.tar.gz /path/to/folder
 
@@ -29,7 +31,6 @@ Show changed files list | git status --short
 # --- JAVA & MAVEN ---
 Maven clean install (Fast) | mvn clean install -DskipTests -T 1C
 Check Java process IDs | jps -l
-Run JAR with memory limit | java -Xmx512m -jar app.jar
 
 # --- POSTGRES ---
 Login to Postgres CLI | psql -U postgres -h localhost

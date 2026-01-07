@@ -24,30 +24,46 @@ IP_SUFFIX=""
 export TARGET_VERSION=""
 
 while [[ $# -gt 0 ]]; do
-  case $1 in
-    deploy|dnfupdate|ssh|setpass|cmd) MODE="$1"; shift ;;
-    -f|-v|--version) export TARGET_VERSION="$2"; shift 2 ;;
-    -h|--help|--h|-help) print_help; exit 0 ;;
+  # CHECK 1: IF MODE IS ALREADY SET (e.g., 'find' was detected)
+  # Treat everything else as arguments, ignoring reserved keywords.
+  if [ -n "$MODE" ]; then
+      case $1 in
+        -f|-v|--version) export TARGET_VERSION="$2"; shift 2 ;;
+        *)
+           # Add word to suffix (Search Query or IP)
+           if [[ -z "$IP_SUFFIX" ]]; then
+               IP_SUFFIX="$1"
+           else
+               IP_SUFFIX="$IP_SUFFIX $1"
+           fi
+           shift
+           ;;
+      esac
 
-    # === UPDATED LOGIC FOR MULTI-WORD ARGUMENTS ===
-    *)
-      if [[ -z "$IP_SUFFIX" ]]; then
-          IP_SUFFIX="$1"
-      else
-          # Append extra words with a space (allows "find large files")
-          IP_SUFFIX="$IP_SUFFIX $1"
-      fi
-      shift
-      ;;
-    # ==============================================
-  esac
+  # CHECK 2: IF MODE IS NOT SET YET
+  # Look for the command keyword.
+  else
+      case $1 in
+        deploy|dnfupdate|ssh|setpass|find) MODE="$1"; shift ;;
+        -f|-v|--version) export TARGET_VERSION="$2"; shift 2 ;;
+        -h|--help|--h|-help) print_help; exit 0 ;;
+        *)
+           # Handle arguments that appear before the command (rare but possible)
+           if [[ -z "$IP_SUFFIX" ]]; then
+               IP_SUFFIX="$1"
+           else
+               IP_SUFFIX="$IP_SUFFIX $1"
+           fi
+           shift
+           ;;
+      esac
+  fi
 done
 
 if [ -z "$MODE" ]; then echo -e "${RED}Error: Missing arguments.${NC}"; print_help; exit 1; fi
 
 # CALCULATE IP (Only if input looks like a number/IP)
 TARGET_IP=""
-# Regex check: ensures we don't try to turn "docker run" into an IP address
 if [ -n "$IP_SUFFIX" ] && [[ "$IP_SUFFIX" =~ ^[0-9.]+$ ]]; then
     if [[ "$IP_SUFFIX" == *.* ]]; then TARGET_IP="${BASE_IP}.${IP_SUFFIX}"; else TARGET_IP="${BASE_IP}.${DEFAULT_SUBNET}.${IP_SUFFIX}"; fi
     export TARGET_IP
@@ -74,12 +90,10 @@ case "$MODE" in
         ssh "${REMOTE_USER}@${TARGET_IP}"
         ;;
     setpass)
-        # Pass FORCE=true, and pass TARGET_IP (if it exists) to allow validation
         ensure_bridge_password "true" "$TARGET_IP"
         exit 0
         ;;
-    cmd)
-        # Pass the full string (e.g., "docker run") to the search function
+    find)
         cmd_search "$IP_SUFFIX"
         exit 0
         ;;
