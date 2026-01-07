@@ -1,0 +1,39 @@
+cat <<EOF > ~/scripts/my_commands.txt
+# --- FILE & SEARCH ---
+Recursive search for string | grep -rnw . -e "search_pattern"
+Find files modified in last 24h | find . -mtime -1
+Find files larger than 100MB | find . -type f -size +100M
+Extract tar.gz archive | tar -xzvf archive.tar.gz
+Compress folder to tar.gz | tar -czvf archive.tar.gz /path/to/folder
+
+# --- SYSTEM & NETWORK ---
+Check disk space usage | df -h
+Show listening ports | netstat -tulpn | grep LISTEN
+Check active connections to port 80 | netstat -an | grep :80
+Show public IP address | curl ifconfig.me
+Monitor system resources | htop
+
+# --- DOCKER ---
+List Docker containers (Clean) | docker ps --format "table {{.ID}}\t{{.Names}}\t{{.Status}}"
+Stop all running containers | docker stop \$(docker ps -q)
+Remove all stopped containers | docker rm \$(docker ps -aq)
+Shell into container | docker exec -it container_name /bin/bash
+View container logs (Follow) | docker logs -f container_name
+
+# --- GIT ---
+Show pretty git log | git log --oneline --graph --decorate --all
+Discard all local changes | git reset --hard HEAD
+Undo last commit (soft) | git reset --soft HEAD~1
+Show changed files list | git status --short
+
+# --- JAVA & MAVEN ---
+Maven clean install (Fast) | mvn clean install -DskipTests -T 1C
+Check Java process IDs | jps -l
+Run JAR with memory limit | java -Xmx512m -jar app.jar
+
+# --- POSTGRES ---
+Login to Postgres CLI | psql -U postgres -h localhost
+List all databases | \l
+Connect to database | \c database_name
+List tables | \dt
+EOF

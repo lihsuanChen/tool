@@ -4,30 +4,19 @@
 export REMOTE_USER="root"
 export BRIDGE_USER="sunbird"
 export AUTH_FILE="$HOME/.sunbird_auth"
+export CMD_LIBRARY="$HOME/scripts/my_commands.txt"
 export BASE_IP="192.168"
 export DEFAULT_SUBNET="78"
 export LOCAL_DNF_SCRIPT="$HOME/projects/test_automation/dnfupdate.sh"
 # ================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/lib_ssh.sh"
 
-# ================= HELP FUNCTION =================
-print_help() {
-    echo -e "${BLUE}==================================================${NC}"
-    echo -e "${YELLOW}  CUSTOM DEPLOYMENT & AUTOMATION TOOL${NC}"
-    echo -e "${BLUE}==================================================${NC}"
-    echo -e "Usage: t [COMMAND] [IP_SUFFIX] [FLAGS]"
-    echo -e ""
-    echo -e "${YELLOW}COMMANDS:${NC}"
-    echo -e "  ${GREEN}deploy <IP>${NC}      Smart Build & Deploy."
-    echo -e "  ${GREEN}dnfupdate <IP>${NC}   Run dnfupdate.sh."
-    echo -e "  ${GREEN}ssh <IP>${NC}         Setup keys & Login as root."
-    echo -e "  ${GREEN}setpass [IP]${NC}     Force update 'sunbird' password (Optional IP to verify)."
-    echo -e ""
-    echo -e "${YELLOW}FLAGS:${NC}"
-    echo -e "  -v <ver>     Version for DB/Client (e.g., 9.3.5)"
-}
+# ================= LOAD MODULES =================
+source "$SCRIPT_DIR/lib_ssh.sh"
+source "$SCRIPT_DIR/tool_cheatsheet.sh"
+source "$SCRIPT_DIR/tool_help.sh"
+# ================================================
 
 # ================= ARGUMENT PARSING =================
 MODE=""
@@ -36,18 +25,30 @@ export TARGET_VERSION=""
 
 while [[ $# -gt 0 ]]; do
   case $1 in
-    deploy|dnfupdate|ssh|setpass) MODE="$1"; shift ;;
+    deploy|dnfupdate|ssh|setpass|cmd) MODE="$1"; shift ;;
     -f|-v|--version) export TARGET_VERSION="$2"; shift 2 ;;
     -h|--help|--h|-help) print_help; exit 0 ;;
-    *) if [[ -z "$IP_SUFFIX" ]]; then IP_SUFFIX="$1"; fi; shift ;;
+
+    # === UPDATED LOGIC FOR MULTI-WORD ARGUMENTS ===
+    *)
+      if [[ -z "$IP_SUFFIX" ]]; then
+          IP_SUFFIX="$1"
+      else
+          # Append extra words with a space (allows "find large files")
+          IP_SUFFIX="$IP_SUFFIX $1"
+      fi
+      shift
+      ;;
+    # ==============================================
   esac
 done
 
 if [ -z "$MODE" ]; then echo -e "${RED}Error: Missing arguments.${NC}"; print_help; exit 1; fi
 
-# CALCULATE IP (If provided)
+# CALCULATE IP (Only if input looks like a number/IP)
 TARGET_IP=""
-if [ -n "$IP_SUFFIX" ]; then
+# Regex check: ensures we don't try to turn "docker run" into an IP address
+if [ -n "$IP_SUFFIX" ] && [[ "$IP_SUFFIX" =~ ^[0-9.]+$ ]]; then
     if [[ "$IP_SUFFIX" == *.* ]]; then TARGET_IP="${BASE_IP}.${IP_SUFFIX}"; else TARGET_IP="${BASE_IP}.${DEFAULT_SUBNET}.${IP_SUFFIX}"; fi
     export TARGET_IP
     echo -e "Target defined as: ${YELLOW}${TARGET_IP}${NC}"
@@ -75,6 +76,11 @@ case "$MODE" in
     setpass)
         # Pass FORCE=true, and pass TARGET_IP (if it exists) to allow validation
         ensure_bridge_password "true" "$TARGET_IP"
+        exit 0
+        ;;
+    cmd)
+        # Pass the full string (e.g., "docker run") to the search function
+        cmd_search "$IP_SUFFIX"
         exit 0
         ;;
     *) echo -e "${RED}Error: Unknown command '$MODE'${NC}"; exit 1 ;;
