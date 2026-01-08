@@ -11,6 +11,41 @@ C_KEYWORD='\033[1;31m'  # Bold Red (Search Term)
 C_WARN='\033[1;33m'     # Bold Yellow (Warning)
 # =================================================
 
+# --- SMART SYNONYM EXPANSION ---
+# Maps a single word to a group of related concepts (Regex OR format)
+expand_concept() {
+    local word=$(echo "$1" | tr '[:upper:]' '[:lower:]')
+    case "$word" in
+        # SEARCH & TEXT
+        find|search|grep|locate|look|query|where) echo "find|search|grep|locate|look|query|where" ;;
+        text|string|pattern|content|code|line)    echo "text|string|pattern|content|code|line" ;;
+
+        # FILE OPERATIONS
+        rm|remove|delete|del|purge|clean|trash)   echo "rm|remove|delete|del|purge|clean|trash" ;;
+        cp|copy|backup|duplicate|clone)           echo "cp|copy|backup|duplicate|clone" ;;
+        mv|move|rename)                           echo "mv|move|rename" ;;
+        dir|directory|folder|path)                echo "dir|directory|folder|path" ;;
+        file|files|doc)                           echo "file|files|doc" ;;
+
+        # VIEWING
+        ls|list|show|view|display|print|check)    echo "ls|list|show|view|display|print|check" ;;
+
+        # ARCHIVE
+        zip|tar|compress|pack|archive)            echo "zip|tar|compress|pack|archive" ;;
+        unzip|untar|extract|unpack)               echo "unzip|untar|extract|unpack" ;;
+
+        # SYSTEM
+        disk|space|usage|size|du|df)              echo "disk|space|usage|size|du|df" ;;
+        mem|memory|ram|swap)                      echo "mem|memory|ram|swap" ;;
+        net|network|ip|port|socket|tcp|udp)       echo "net|network|ip|port|socket|tcp|udp" ;;
+        kill|stop|halt|pause)                     echo "kill|stop|halt|pause" ;;
+        run|start|launch|exec)                    echo "run|start|launch|exec" ;;
+
+        # DEFAULT (No Synonym)
+        *) echo "$word" ;;
+    esac
+}
+
 cmd_search() {
     local RAW_INPUT=$1
 
@@ -28,35 +63,52 @@ cmd_search() {
     else
         echo -e "  ${C_TITLE}SEARCHING FOR: ${C_KEYWORD}'$RAW_INPUT'${C_RESET}"
 
-        # === PHASE 1: STRICT SEARCH (AND) ===
-        MATCHES=$(awk -v query="$RAW_INPUT" '
-            BEGIN { split(tolower(query), words, " ") }
+        # === PRE-PROCESS: Build Concept Regexes ===
+        # Convert "find string" -> "find|grep|..." AND "string|text|..."
+        local PATTERN_LIST=""
+        for word in $RAW_INPUT; do
+            local EXPANDED=$(expand_concept "$word")
+            if [ -z "$PATTERN_LIST" ]; then
+                PATTERN_LIST="$EXPANDED"
+            else
+                PATTERN_LIST="${PATTERN_LIST}###${EXPANDED}"
+            fi
+        done
+
+        # === PHASE 1: CONCEPT SEARCH (Smart AND) ===
+        # We pass the list of regexes separated by '###'
+        MATCHES=$(awk -v patterns="$PATTERN_LIST" '
+            BEGIN {
+                n = split(patterns, regex_list, "###")
+            }
             /^#/ { head=$0; next }
             {
-                line = tolower($0); all_found = 1;
-                for (i in words) {
-                    if (index(line, words[i]) == 0) { all_found = 0; break; }
+                line = tolower($0);
+                match_all = 1;
+                for (i = 1; i <= n; i++) {
+                    # If line does not match the concept regex, fail
+                    if (line !~ regex_list[i]) { match_all = 0; break }
                 }
-                if (all_found) {
+                if (match_all) {
                     if (head) print head;
                     print $0; head=""
                 }
             }
         ' "$CMD_LIBRARY")
 
-        # === PHASE 2: BEST MATCH (SCORING) ===
+        # === PHASE 2: BEST MATCH (Scoring) ===
         if [ -z "$MATCHES" ]; then
             echo -e "${C_BORDER}--------------------------------------------------${C_RESET}"
-            echo -e "  ${C_WARN}! No exact matches. Showing top 10 best matches:${C_RESET}"
+            echo -e "  ${C_WARN}! No exact matches. Showing best concept matches:${C_RESET}"
 
-            MATCHES=$(awk -v query="$RAW_INPUT" '
-                BEGIN { split(tolower(query), words, " ") }
+            MATCHES=$(awk -v patterns="$PATTERN_LIST" '
+                BEGIN { n = split(patterns, regex_list, "###") }
                 /^#/ { head=$0; next }
                 {
                     line = tolower($0)
                     score = 0
-                    for (i in words) {
-                        if (index(line, words[i]) > 0) score++
+                    for (i = 1; i <= n; i++) {
+                        if (line ~ regex_list[i]) score++
                     }
                     if (score > 0) {
                         print score "@@@" head "@@@" $0
@@ -77,18 +129,15 @@ cmd_search() {
 
     # 3. Parse and Print
     echo "$MATCHES" | while IFS='|' read -r desc cmd; do
-        # FIX: Use sed instead of xargs to trim whitespace (preserves backslashes)
         desc=$(echo "$desc" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
         cmd=$(echo "$cmd" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
 
-        # Handle Headers
         if [[ "$desc" == \#* ]]; then
             CLEAN_HEADER="${desc//# /}"
             echo -e "\n${C_HEADER}=== ${CLEAN_HEADER} ===${C_RESET}"
             continue
         fi
 
-        # Handle Commands
         if [ -n "$desc" ] && [ -n "$cmd" ]; then
             echo -e "${C_DESC}${desc}${C_RESET}"
             echo -e "  ${C_CMD}> ${cmd}${C_RESET}"

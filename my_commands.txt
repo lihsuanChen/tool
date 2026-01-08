@@ -1,40 +1,297 @@
-cat <<EOF > ~/scripts/my_commands.txt
-# --- FILE & SEARCH ---
-Recursive search for string | grep -rnw . -e "search_pattern"
-Find files modified in last 24h | find . -mtime -1
-Find files larger than 100MB | find . -type f -size +100M
-Find files by partial name (glob) | find . -name "*pattern*"
-Find files by partial path (grep) | find . | grep "partial_name"
-Extract tar.gz archive | tar -xzvf archive.tar.gz
-Compress folder to tar.gz | tar -czvf archive.tar.gz /path/to/folder
+cat <<'EOF' > ~/scripts/my_commands.txt
+# =======================================================================
+#  MASTER COMMAND LIBRARY (~400 COMMANDS)
+# =======================================================================
 
-# --- SYSTEM & NETWORK ---
-Check disk space usage | df -h
-Show listening ports | netstat -tulpn | grep LISTEN
-Check active connections to port 80 | netstat -an | grep :80
-Show public IP address | curl ifconfig.me
-Monitor system resources | htop
+# --- FILE OPERATIONS & ATTRIBUTES ---
+List files detailed sort by time recent ls view | ls -lart
+List files sort by size largest first ls view | ls -lSrh
+Tree view of directory structure ls | tree -L 2
+Count files in current directory wc count | ls -1 | wc -l
+Check file type description info | file filename
+Change file permissions numeric chmod | chmod 755 filename
+Change file owner and group chown | chown user:group filename
+Make file immutable (cannot be deleted) chattr lock | chattr +i filename
+Remove immutable attribute unlock chattr | chattr -i filename
+Create symbolic link soft ln | ln -s /path/to/target linkname
+Create directory nested parents mkdir | mkdir -p /path/to/dir/level2
+Remove directory recursively delete rm | rm -rf /path/to/dir
+Securely wipe file from disk shred delete | shred -u filename
+Diff two files side by side compare | diff -y file1.txt file2.txt
+Touch file to update timestamp create | touch filename
+Find duplicate files by hash dedup | find . -type f -exec md5sum {} + | sort | uniq -d -w 32
+Rename multiple files bulk rename | rename 's/old/new/' *.txt
+Split large file into chunks split | split -b 100M largefile.txt chunk_
+Merge split chunks back together join cat | cat chunk_* > largefile.txt
 
-# --- DOCKER ---
-List Docker containers (Clean) | docker ps --format "table {{.ID}}\t{{.Names}}\t{{.Status}}"
-Stop all running containers | docker stop \$(docker ps -q)
-Remove all stopped containers | docker rm \$(docker ps -aq)
-Shell into container | docker exec -it container_name /bin/bash
-View container logs (Follow) | docker logs -f container_name
+# --- SEARCH & TEXT PROCESSING (GREP, SED, AWK) ---
+Recursive search for string line numbers grep find | grep -rnw . -e "pattern"
+Search case insensitive string grep find | grep -ri "pattern" .
+List filenames matching pattern grep find | grep -rl "pattern" .
+Search ignoring binary files grep find | grep -I "pattern" .
+Grep with context (3 lines before/after) find | grep -C 3 "pattern" .
+Find and replace in files recursively sed | grep -rl "old" . | xargs sed -i 's/old/new/g'
+Print specific column (e.g., col 2) awk | awk '{print $2}' file.txt
+Sum a column of numbers awk math | awk '{sum+=$1} END {print sum}' file.txt
+Print lines longer than 80 chars awk | awk 'length($0) > 80' file.txt
+Remove duplicate lines keep order awk uniq | awk '!seen[$0]++' file.txt
+Remove empty lines sed clean | sed '/^$/d' file.txt
+Remove trailing whitespace sed clean | sed 's/[ \t]*$//' file.txt
+Convert DOS newlines to Unix dos2unix | sed -i 's/\r$//' file.txt
+Sort lines and remove duplicates uniq | sort | uniq
+Count occurrences of unique lines count | sort | uniq -c | sort -nr
+Pretty print JSON syntax highlight jq view | jq . file.json
+Extract specific JSON key value jq | jq '.key' file.json
+Watch file changes live tail follow | tail -f logfile.log
+Head first 10 lines of file view | head -n 10 file.txt
+Tail last 10 lines of file view | tail -n 10 file.txt
+Number lines in file cat nl | cat -n file.txt
+Search fuzzy matches (approximate) agrep | agrep -2 "pattern" file.txt
 
-# --- GIT ---
-Show pretty git log | git log --oneline --graph --decorate --all
-Discard all local changes | git reset --hard HEAD
-Undo last commit (soft) | git reset --soft HEAD~1
-Show changed files list | git status --short
+# --- DISK, STORAGE & ARCHIVE ---
+Check disk space usage human readable df size | df -hT
+Check directory size depth 1 du space | du -h --max-depth=1
+Show largest directories in path du sort | du -h . | sort -rh | head -n 20
+List block devices disks partitions lsblk | lsblk -fm
+Show filesystem inodes usage df count | df -ih
+Mount a partition (ISO/USB) mount | mount -o loop disk.iso /mnt/cdrom
+Unmount a partition umount | umount /mnt/cdrom
+Check disk S.M.A.R.T health smartctl | smartctl -a /dev/sda
+Compress folder to tar.gz zip archive | tar -czvf archive.tar.gz /folder
+Extract tar.gz archive unzip unpack | tar -xzvf archive.tar.gz
+Compress file to zip archive | zip archive.zip file.txt
+Extract zip archive unzip | unzip archive.zip
+Compress with xz (high compression) | tar -cf - directory/ | xz -9 -c - > archive.tar.xz
+Extract xz archive unpack | tar -xJf archive.tar.xz
+Sync directories local to remote rsync copy | rsync -avz -e ssh /local/dir user@host:/remote/dir
+Clone drive to image file dd backup | dd if=/dev/sda of=image.img bs=4M status=progress
+Securely wipe drive with zeros dd format | dd if=/dev/zero of=/dev/sdX bs=4M status=progress
 
-# --- JAVA & MAVEN ---
-Maven clean install (Fast) | mvn clean install -DskipTests -T 1C
-Check Java process IDs | jps -l
+# --- SYSTEM INFO & HARDWARE ---
+Show kernel version uname release | uname -msr
+Show distribution info release version | cat /etc/*release
+Show CPU info architecture lscpu | lscpu
+Show memory info free ram | free -h
+Show PCI devices hardware lspci | lspci -tv
+Show USB devices hardware lsusb | lsusb -tv
+Show hardware listing detailed lshw | lshw -short
+Show DMI bios info dmidecode | dmidecode -t system
+Check system uptime load | uptime
+Show loaded kernel modules lsmod | lsmod
+Monitor cpu temperature sensors | watch sensors
+Check battery status capacity power | upower -i /org/freedesktop/UPower/devices/battery_BAT0
 
-# --- POSTGRES ---
-Login to Postgres CLI | psql -U postgres -h localhost
-List all databases | \l
-Connect to database | \c database_name
-List tables | \dt
+# --- SYSTEM MONITORING & PERFORMANCE ---
+Monitor system resources interactive htop | htop
+Monitor IO usage disk throughput iostat | iostat -xz 1
+Monitor virtual memory stats vmstat | vmstat 1
+Monitor network traffic bandwidth nload | nload
+Monitor detailed network stats traffic iftop | iftop -n
+Trace system calls of process strace debug | strace -p <pid>
+Trace file opens of process strace debug | strace -e trace=open -p <pid>
+List open files by process lsof | lsof -p <pid>
+List processes by memory usage ps sort | ps aux --sort=-%mem | head
+List processes by cpu usage ps sort | ps aux --sort=-%cpu | head
+Find process ID by name pgrep | pgrep -a "name"
+Kill process by name pkill stop | pkill -9 "name"
+Kill process by PID kill stop | kill -9 <pid>
+Change process priority renice nice | renice -n -5 -p <pid>
+Show tree of running processes pstree | pstree -p
+Drop file system caches free ram | echo 3 > /proc/sys/vm/drop_caches
+
+# --- USERS & PERMISSIONS ---
+List all users from passwd file | cut -d: -f1 /etc/passwd
+List currently logged in users who | w
+Show current user id groups | id
+Add new user with home directory useradd | useradd -m -s /bin/bash username
+Delete user and home directory userdel | userdel -r username
+Change user password passwd | passwd username
+Add user to sudo group permissions | usermod -aG sudo username
+Lock user account disable | usermod -L username
+Unlock user account enable | usermod -U username
+Check sudo history log grep | grep sudo /var/log/auth.log
+Change owner of directory recursive chown | chown -R user:group /path
+
+# --- NETWORK & CONNECTIVITY ---
+Show IP addresses interfaces ip | ip addr show
+Show routing table ip route | ip route show
+Ping host count 5 connectivity | ping -c 5 google.com
+Trace path to host mtr traceroute | mtr -rw google.com
+Show listening ports sockets ss netstat | ss -tulpn
+Check port connectivity netcat nc | nc -zv 127.0.0.1 80
+Scan open ports on host nmap | nmap -F 192.168.1.1
+Capture packets tcpdump wireshark traffic | tcpdump -i eth0 port 80 -w capture.pcap
+Detailed DNS lookup dig query | dig +trace google.com
+Simple DNS lookup nslookup | nslookup google.com
+Whois domain information query | whois google.com
+Download file wget curl | wget -c http://example.com/file
+Curl header only check http status | curl -I https://google.com
+Curl with JSON payload post api | curl -X POST -H "Content-Type: application/json" -d '{"key":"val"}' http://api.com
+Check SSL certificate dates openssl | openssl s_client -connect google.com:443 | openssl x509 -noout -dates
+Generate SSH key pair keygen | ssh-keygen -t rsa -b 4096
+Copy SSH key to remote host auth | ssh-copy-id user@host
+Monitor TCP connections state watch | watch -n 1 "netstat -an | grep ESTABLISHED | wc -l"
+Show network interface stats ethtool | ethtool eth0
+Set interface IP address temporary ip | ip addr add 192.168.1.50/24 dev eth0
+
+# --- DOCKER & CONTAINERS ---
+List running containers ps status | docker ps --format "table {{.ID}}\t{{.Names}}\t{{.Status}}\t{{.Ports}}"
+List all containers including stopped | docker ps -a
+List all images size | docker images
+Stop all running containers kill | docker stop $(docker ps -q)
+Remove all stopped containers clean | docker rm $(docker ps -aq)
+Remove all dangling images clean | docker image prune -f
+Remove all unused objects (nuke) clean | docker system prune -a --volumes -f
+Shell into container exec bash | docker exec -it container_name /bin/bash
+View container logs follow tail | docker logs -f container_name
+Inspect container config json | docker inspect container_name
+Get container IP address inspect | docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' container_name
+Copy file host to container transfer | docker cp file.txt container:/path/
+Copy file container to host transfer | docker cp container:/path/file.txt .
+Build image from Dockerfile | docker build -t myimage:latest .
+Run container interactive rm | docker run -it --rm ubuntu /bin/bash
+Run container detached ports | docker run -d -p 8080:80 --name myweb nginx
+Show container stats resource cpu mem | docker stats
+Docker Compose up detached start | docker-compose up -d
+Docker Compose down remove stop | docker-compose down
+Docker Compose logs follow | docker-compose logs -f
+Save image to tar archive export | docker save -o image.tar myimage:latest
+Load image from tar archive import | docker load -i image.tar
+
+# --- KUBERNETES (K8s) ---
+Get all pods in current namespace list | kubectl get pods
+Get all pods all namespaces list | kubectl get pods --all-namespaces
+Get pods with wide info IP nodes | kubectl get pods -o wide
+Get services endpoints list | kubectl get svc
+Get deployments list | kubectl get deploy
+Describe pod details debug | kubectl describe pod pod_name
+Logs of a pod dump | kubectl logs pod_name
+Logs of a pod follow tail | kubectl logs -f pod_name
+Exec into pod bash shell | kubectl exec -it pod_name -- /bin/bash
+Delete pod force kill | kubectl delete pod pod_name --grace-period=0 --force
+Apply configuration yaml deploy | kubectl apply -f config.yaml
+Delete configuration yaml remove | kubectl delete -f config.yaml
+Get config contexts switch | kubectl config get-contexts
+Switch context cluster | kubectl config use-context context_name
+Port forward local to pod tunnel | kubectl port-forward pod_name 8080:80
+Get nodes status cluster | kubectl get nodes
+Top pods resource usage cpu mem | kubectl top pods
+
+# --- GIT & VERSION CONTROL ---
+Initialize new repo init | git init
+Clone repository download | git clone git@github.com:user/repo.git
+Check status modified files | git status
+Diff changes staged vs unstaged | git diff
+Diff staged changes cached | git diff --cached
+Commit changes message | git commit -m "message"
+Commit amend last message edit | git commit --amend -m "new message"
+Log history one line graph | git log --oneline --graph --decorate --all
+Log search by string grep | git log --grep="bugfix"
+Show who changed lines blame | git blame filename
+Branch list local | git branch
+Branch create new | git checkout -b new_branch
+Switch branch checkout | git checkout branch_name
+Merge branch combine | git merge branch_name
+Rebase branch update | git rebase master
+Stash changes save hide | git stash save "wip"
+Stash pop restore | git stash pop
+Remote list urls | git remote -v
+Fetch changes remote | git fetch origin
+Pull changes remote sync | git pull origin master
+Push changes remote upload | git push origin master
+Reset hard discard changes | git reset --hard HEAD
+Reset soft undo commit keep files | git reset --soft HEAD~1
+Clean untracked files delete | git clean -fd
+Tag create version | git tag -a v1.0 -m "release 1.0"
+Push tags remote | git push origin --tags
+Reflog show lost commits history | git reflog
+Submodule update init recursive | git submodule update --init --recursive
+Bisect start debugging | git bisect start
+Bisect bad commit | git bisect bad
+Bisect good commit | git bisect good
+
+# --- JAVA & JVM DIAGNOSTICS ---
+Check running java processes jps | jps -l
+Check java version properties | java -XshowSettings:properties -version
+Run jar with memory args | java -Xms512m -Xmx2g -jar app.jar
+Generate heap dump memory leak | jmap -dump:format=b,file=heap.hprof <pid>
+Generate thread dump deadlock | jstack -l <pid> > thread_dump.txt
+Monitor GC statistics live jstat | jstat -gcutil <pid> 1000
+Print JVM flags configuration | jinfo -flags <pid>
+Print class histogram memory usage | jmap -histo <pid> | head -20
+Trigger garbage collection force | jcmd <pid> GC.run
+Check native memory tracking NMT | jcmd <pid> VM.native_memory summary
+Diagnose high cpu thread | top -H -p <pid>
+Maven clean install skip tests | mvn clean install -DskipTests -T 1C
+Maven dependency tree list | mvn dependency:tree
+Maven run spring boot | mvn spring-boot:run
+Gradle build skip tests | ./gradlew build -x test
+
+# --- POSTGRESQL DATABASE ---
+Connect to database psql | psql -U postgres -h localhost -d dbname
+List databases psql | \l
+List tables psql | \dt
+Describe table schema | \d tablename
+Show running queries active | SELECT pid, age(query_start, clock_timestamp()), usename, query FROM pg_stat_activity WHERE state != 'idle' AND query NOT ILIKE '%pg_stat_activity%' ORDER BY query_start desc;
+Kill query process | SELECT pg_terminate_backend(pid);
+Check database size | SELECT pg_size_pretty(pg_database_size('dbname'));
+Check table size | SELECT pg_size_pretty(pg_total_relation_size('tablename'));
+Export database dump backup | pg_dump -U postgres dbname > db.sql
+Import database restore | psql -U postgres dbname < db.sql
+Vacuum database analyze | VACUUM ANALYZE;
+Show connection count | SELECT count(*) from pg_stat_activity;
+
+# --- PACKAGE MANAGEMENT (RPM/DNF/APT) ---
+Install package yum dnf | dnf install package_name
+Remove package yum dnf | dnf remove package_name
+Search package yum dnf | dnf search keyword
+List installed packages rpm | rpm -qa | grep package
+Info about package rpm | rpm -qi package_name
+List files in package rpm | rpm -ql package_name
+Find which package owns file rpm | rpm -qf /path/to/file
+Update all packages dnf | dnf update -y
+Clean cache dnf | dnf clean all
+History of transactions dnf | dnf history
+Undo last transaction dnf | dnf history undo last
+Install .rpm file local | rpm -ivh file.rpm
+Force remove rpm no deps | rpm -e --nodeps package_name
+Extract rpm content cpio | rpm2cpio file.rpm | cpio -idmv
+
+# --- SECURITY & SSL ---
+Check certificate expiry local file | openssl x509 -in cert.pem -noout -enddate
+Check certificate expiry remote url | openssl s_client -connect google.com:443 | openssl x509 -noout -dates
+Generate CSR request | openssl req -new -newkey rsa:2048 -nodes -keyout domain.key -out domain.csr
+Verify CSR content | openssl req -text -noout -verify -in domain.csr
+Verify Key and Cert match md5 | openssl x509 -noout -modulus -in cert.pem | openssl md5; openssl rsa -noout -modulus -in key.pem | openssl md5
+List gpg keys | gpg --list-keys
+Encrypt file gpg | gpg -c filename
+Decrypt file gpg | gpg filename.gpg
+
+# --- SYSTEMD SERVICES ---
+Start service systemctl | systemctl start service_name
+Stop service systemctl | systemctl stop service_name
+Restart service systemctl | systemctl restart service_name
+Reload configuration service | systemctl reload service_name
+Status of service check | systemctl status service_name
+Enable service on boot | systemctl enable service_name
+Disable service on boot | systemctl disable service_name
+List all running services | systemctl list-units --type=service --state=running
+Show service logs journalctl | journalctl -u service_name -f
+Show kernel logs journalctl | journalctl -k
+Vacuum system logs clean | journalctl --vacuum-time=7d
+
+# --- UTILITIES & MISC ---
+Calculate math expression bc | echo "10.5 * 5" | bc
+Generate random password | openssl rand -base64 12
+Get epoch timestamp | date +%s
+Convert epoch to human date | date -d @1609459200
+Encode string base64 | echo -n "text" | base64
+Decode string base64 | echo "dGV4dA==" | base64 -d
+Watch command output interval | watch -n 1 "date"
+Run command in background nohup | nohup command &
+List background jobs | jobs
+Bring job to foreground | fg %1
+History search command | history | grep "cmd"
+Clear terminal screen | clear
+Exit terminal session | exit
 EOF
