@@ -8,6 +8,9 @@ export CMD_LIBRARY="$HOME/scripts/my_commands.txt"
 export BASE_IP="192.168"
 export DEFAULT_SUBNET="78"
 export LOCAL_DNF_SCRIPT="$HOME/projects/test_automation/dnfupdate.sh"
+
+# NEW: Set your permanent default limit for search results here
+export DEFAULT_SEARCH_LIMIT="8"
 # ================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -23,12 +26,17 @@ MODE=""
 IP_SUFFIX=""
 export TARGET_VERSION=""
 
+# Initialize limit with your default preference
+export SEARCH_LIMIT="$DEFAULT_SEARCH_LIMIT"
+
 while [[ $# -gt 0 ]]; do
   # CHECK 1: IF MODE IS ALREADY SET (e.g., 'find' was detected)
   # Treat everything else as arguments, ignoring reserved keywords.
   if [ -n "$MODE" ]; then
       case $1 in
         -f|-v|--version) export TARGET_VERSION="$2"; shift 2 ;;
+        # NEW: Parse limit flag (e.g., -l 5)
+        -l|--limit) export SEARCH_LIMIT="$2"; shift 2 ;;
         *)
            # Add word to suffix (Search Query or IP)
            if [[ -z "$IP_SUFFIX" ]]; then
@@ -44,8 +52,11 @@ while [[ $# -gt 0 ]]; do
   # Look for the command keyword.
   else
       case $1 in
-        deploy|dnfupdate|ssh|setpass|find) MODE="$1"; shift ;;
+        # ADDED 'readme' to the accepted commands list
+        deploy|dnfupdate|ssh|setpass|find|readme) MODE="$1"; shift ;;
         -f|-v|--version) export TARGET_VERSION="$2"; shift 2 ;;
+        # NEW: Parse limit flag here too
+        -l|--limit) export SEARCH_LIMIT="$2"; shift 2 ;;
         -h|--help|--h|-help) print_help; exit 0 ;;
         *)
            # Handle arguments that appear before the command (rare but possible)
@@ -94,7 +105,21 @@ case "$MODE" in
         exit 0
         ;;
     find)
+        # Search limit is handled inside cmd_search using the exported SEARCH_LIMIT
         cmd_search "$IP_SUFFIX"
+        exit 0
+        ;;
+    readme)
+        # NEW: Logic to show README
+        README_PATH="$SCRIPT_DIR/README.md"
+        if [ -f "$README_PATH" ]; then
+            echo -e "${BLUE}==================================================${NC}"
+            echo -e "${YELLOW}  DISPLAYING README: $README_PATH${NC}"
+            echo -e "${BLUE}==================================================${NC}"
+            cat "$README_PATH"
+        else
+            echo -e "${RED}Error: README.md not found at $README_PATH${NC}"
+        fi
         exit 0
         ;;
     *) echo -e "${RED}Error: Unknown command '$MODE'${NC}"; exit 1 ;;

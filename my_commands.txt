@@ -26,6 +26,8 @@ Merge split chunks back together join cat | cat chunk_* > largefile.txt
 
 # --- SEARCH & TEXT PROCESSING (GREP, SED, AWK) ---
 Recursive search for string line numbers grep find | grep -rnw . -e "pattern"
+Recursive search for case insensitive string line numbers grep find | grep -rnwi . -e "pattern"
+Search text content in specific file extensions only grep include | grep -rnwi . --include="*.ext" -e "pattern"
 Search case insensitive string grep find | grep -ri "pattern" .
 List filenames matching pattern grep find | grep -rl "pattern" .
 Search ignoring binary files grep find | grep -I "pattern" .
