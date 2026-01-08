@@ -160,25 +160,6 @@ Docker Compose logs follow | docker-compose logs -f
 Save image to tar archive export | docker save -o image.tar myimage:latest
 Load image from tar archive import | docker load -i image.tar
 
-# --- KUBERNETES (K8s) ---
-Get all pods in current namespace list | kubectl get pods
-Get all pods all namespaces list | kubectl get pods --all-namespaces
-Get pods with wide info IP nodes | kubectl get pods -o wide
-Get services endpoints list | kubectl get svc
-Get deployments list | kubectl get deploy
-Describe pod details debug | kubectl describe pod pod_name
-Logs of a pod dump | kubectl logs pod_name
-Logs of a pod follow tail | kubectl logs -f pod_name
-Exec into pod bash shell | kubectl exec -it pod_name -- /bin/bash
-Delete pod force kill | kubectl delete pod pod_name --grace-period=0 --force
-Apply configuration yaml deploy | kubectl apply -f config.yaml
-Delete configuration yaml remove | kubectl delete -f config.yaml
-Get config contexts switch | kubectl config get-contexts
-Switch context cluster | kubectl config use-context context_name
-Port forward local to pod tunnel | kubectl port-forward pod_name 8080:80
-Get nodes status cluster | kubectl get nodes
-Top pods resource usage cpu mem | kubectl top pods
-
 # --- GIT & VERSION CONTROL ---
 Initialize new repo init | git init
 Clone repository download | git clone git@github.com:user/repo.git
