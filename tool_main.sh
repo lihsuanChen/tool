@@ -9,7 +9,7 @@ export BASE_IP="192.168"
 export DEFAULT_SUBNET="78"
 export LOCAL_DNF_SCRIPT="$HOME/projects/test_automation/dnfupdate.sh"
 
-# NEW: Set your permanent default limit for search results here
+# Set your permanent default limit for search results here
 export DEFAULT_SEARCH_LIMIT="8"
 # ================================================
 
@@ -19,61 +19,38 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib_ssh.sh"
 source "$SCRIPT_DIR/tool_cheatsheet.sh"
 source "$SCRIPT_DIR/tool_help.sh"
+source "$SCRIPT_DIR/tool_postgres.sh"   # Postgres Module
+source "$SCRIPT_DIR/tool_readme.sh"     # NEW: Readme Module
 # ================================================
 
 # ================= ARGUMENT PARSING =================
 MODE=""
 IP_SUFFIX=""
 export TARGET_VERSION=""
-
-# Initialize limit with your default preference
 export SEARCH_LIMIT="$DEFAULT_SEARCH_LIMIT"
 
 while [[ $# -gt 0 ]]; do
-  # CHECK 1: IF MODE IS ALREADY SET (e.g., 'find' was detected)
-  # Treat everything else as arguments, ignoring reserved keywords.
   if [ -n "$MODE" ]; then
       case $1 in
         -f|-v|--version) export TARGET_VERSION="$2"; shift 2 ;;
-        # NEW: Parse limit flag (e.g., -l 5)
         -l|--limit) export SEARCH_LIMIT="$2"; shift 2 ;;
-        *)
-           # Add word to suffix (Search Query or IP)
-           if [[ -z "$IP_SUFFIX" ]]; then
-               IP_SUFFIX="$1"
-           else
-               IP_SUFFIX="$IP_SUFFIX $1"
-           fi
-           shift
-           ;;
+        *) if [[ -z "$IP_SUFFIX" ]]; then IP_SUFFIX="$1"; else IP_SUFFIX="$IP_SUFFIX $1"; fi; shift ;;
       esac
-
-  # CHECK 2: IF MODE IS NOT SET YET
-  # Look for the command keyword.
   else
       case $1 in
-        # ADDED 'setroot' to the accepted commands list
-        deploy|dnfupdate|ssh|setpass|find|readme|setroot) MODE="$1"; shift ;;
+        # RENAMED setroot -> rootsetup
+        deploy|dnfupdate|ssh|setpass|find|readme|rootsetup|pgtrust) MODE="$1"; shift ;;
         -f|-v|--version) export TARGET_VERSION="$2"; shift 2 ;;
-        # NEW: Parse limit flag here too
         -l|--limit) export SEARCH_LIMIT="$2"; shift 2 ;;
         -h|--help|--h|-help) print_help; exit 0 ;;
-        *)
-           # Handle arguments that appear before the command (rare but possible)
-           if [[ -z "$IP_SUFFIX" ]]; then
-               IP_SUFFIX="$1"
-           else
-               IP_SUFFIX="$IP_SUFFIX $1"
-           fi
-           shift
-           ;;
+        *) if [[ -z "$IP_SUFFIX" ]]; then IP_SUFFIX="$1"; else IP_SUFFIX="$IP_SUFFIX $1"; fi; shift ;;
       esac
   fi
 done
 
 if [ -z "$MODE" ]; then echo -e "${RED}Error: Missing arguments.${NC}"; print_help; exit 1; fi
 
-# CALCULATE IP (Only if input looks like a number/IP)
+# CALCULATE IP
 TARGET_IP=""
 if [ -n "$IP_SUFFIX" ] && [[ "$IP_SUFFIX" =~ ^[0-9.]+$ ]]; then
     if [[ "$IP_SUFFIX" == *.* ]]; then TARGET_IP="${BASE_IP}.${IP_SUFFIX}"; else TARGET_IP="${BASE_IP}.${DEFAULT_SUBNET}.${IP_SUFFIX}"; fi
@@ -104,29 +81,25 @@ case "$MODE" in
         ensure_bridge_password "true" "$TARGET_IP"
         exit 0
         ;;
-    # NEW: SET ROOT PASSWORD COMMAND
-    setroot)
-        if [ -z "$TARGET_IP" ]; then error_exit "IP Required for setroot."; fi
+    rootsetup)
+        if [ -z "$TARGET_IP" ]; then error_exit "IP Required for rootsetup."; fi
         ensure_bridge_password "false" "$TARGET_IP"
         setup_root_creds "${BRIDGE_USER}" "${TARGET_IP}"
         exit 0
         ;;
+    pgtrust)
+        if [ -z "$TARGET_IP" ]; then error_exit "IP Required for pgtrust."; fi
+        check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
+        pg_whitelist_ip "${REMOTE_USER}" "${TARGET_IP}"
+        exit 0
+        ;;
     find)
-        # Search limit is handled inside cmd_search using the exported SEARCH_LIMIT
         cmd_search "$IP_SUFFIX"
         exit 0
         ;;
+    # NEW: Modularized Call
     readme)
-        # NEW: Logic to show README
-        README_PATH="$SCRIPT_DIR/README.md"
-        if [ -f "$README_PATH" ]; then
-            echo -e "${BLUE}==================================================${NC}"
-            echo -e "${YELLOW}  DISPLAYING README: $README_PATH${NC}"
-            echo -e "${BLUE}==================================================${NC}"
-            cat "$README_PATH"
-        else
-            echo -e "${RED}Error: README.md not found at $README_PATH${NC}"
-        fi
+        show_readme "$SCRIPT_DIR"
         exit 0
         ;;
     *) echo -e "${RED}Error: Unknown command '$MODE'${NC}"; exit 1 ;;

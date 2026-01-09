@@ -19,20 +19,8 @@ Place all script files into `~/scripts/`:
 * `process_deploy.sh`, `deploy_server.sh`, `deploy_client.sh`, `deploy_database.sh`
 * `process_dnfupdate.sh`
 
-### 2. Configure Aliases
-1.  Make scripts executable:
+### 2. Init Setting and Configure Aliases
+1.  Run the setup script to add aliases (`t`, `td`, `tf`) to your `.bashrc`:
     ```bash
-    cd ~/scripts
-    chmod +x *.sh
-    sed -i 's/\r$//' *.sh
+    source ~/scripts/setup_alias.sh
     ```
-2.  Run the setup script to add aliases (`t`, `td`, `tf`) to your `.bashrc`:
-    ```bash
-    bash ~/scripts/setup_alias.sh
-    source ~/.bashrc
-    ```
-
-### 3. Create Command Library
-Create your personal cheatsheet file:
-```bash
-touch ~/scripts/my_commands.txt
