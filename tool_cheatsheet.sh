@@ -19,6 +19,7 @@ expand_concept() {
         text|string|pattern|content|code|line)    echo "text|string|pattern|content|code|line" ;;
         rm|remove|delete|del|purge|clean|trash)   echo "rm|remove|delete|del|purge|clean|trash" ;;
         cp|copy|backup|duplicate|clone)           echo "cp|copy|backup|duplicate|clone" ;;
+        scp|rsync)                                echo "scp|rsync" ;;
         mv|move|rename)                           echo "mv|move|rename" ;;
         dir|directory|folder|path)                echo "dir|directory|folder|path" ;;
         file|files|doc)                           echo "file|files|doc" ;;

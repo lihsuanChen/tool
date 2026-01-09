@@ -65,7 +65,6 @@ Compress file to zip archive | zip archive.zip file.txt
 Extract zip archive unzip | unzip archive.zip
 Compress with xz (high compression) | tar -cf - directory/ | xz -9 -c - > archive.tar.xz
 Extract xz archive unpack | tar -xJf archive.tar.xz
-Sync directories local to remote rsync copy | rsync -avz -e ssh /local/dir user@host:/remote/dir
 Clone drive to image file dd backup | dd if=/dev/sda of=image.img bs=4M status=progress
 Securely wipe drive with zeros dd format | dd if=/dev/zero of=/dev/sdX bs=4M status=progress
 
@@ -262,6 +261,22 @@ List all running services | systemctl list-units --type=service --state=running
 Show service logs journalctl | journalctl -u service_name -f
 Show kernel logs journalctl | journalctl -k
 Vacuum system logs clean | journalctl --vacuum-time=7d
+
+# --- FILE TRANSFER (SCP & RSYNC) ---
+Secure copy local file to remote scp upload | scp filename user@remote:/path/to/dest
+Secure copy remote file to local scp download | scp user@remote:/path/to/file /local/dest
+Secure copy directory recursively scp folder | scp -r /local/dir user@remote:/remote/dest
+SCP with specific SSH port | scp -P 2222 filename user@remote:/dest
+Sync directory local to remote rsync push | rsync -avz /local/dir user@remote:/remote/dest
+Sync directory remote to local rsync pull | rsync -avz user@remote:/remote/dir /local/dest
+Rsync with progress bar and stats | rsync -avz --progress /source /dest
+Rsync delete files not in source mirror sync | rsync -avz --delete /source /dest
+Rsync exclude specific file pattern ignore | rsync -avz --exclude '*.log' /source /dest
+Rsync over SSH with custom port | rsync -avz -e "ssh -p 2222" /source /dest
+Rsync dry run simulate test no changes | rsync -avz --dry-run /source /dest
+Resume interrupted rsync transfer partial | rsync -avz --partial --append-verify /source /dest
+Limit rsync bandwidth usage limit rate | rsync -avz --bwlimit=1000 /source /dest
+Copy large files with rsync progress bar | rsync -ah --progress source_file destination
 
 # --- UTILITIES & MISC ---
 Calculate math expression bc | echo "10.5 * 5" | bc
