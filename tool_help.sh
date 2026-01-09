@@ -15,6 +15,7 @@ print_help() {
     echo -e "  ${GREEN}setpass [IP]${NC}     Update stored password for Bridge User (${BRIDGE_USER})."
     echo -e "  ${GREEN}rootsetup <IP>${NC}   Sync Root password with Bridge password & enable Root Login."
     echo -e "  ${GREEN}pgtrust <IP>${NC}     Whitelist YOUR current IP in remote PostgreSQL."
+    echo -e "  ${GREEN}tomcatsetup <IP>${NC} Enable Tomcat Remote Debugging (Port 8000)."
     echo -e "  ${GREEN}readme${NC}           Show the documentation (README.md)."
     echo -e ""
     echo -e "${YELLOW}DATA SOURCE (for 'tf'):${NC}"
@@ -34,6 +35,5 @@ print_help() {
     echo -e ""
     echo -e "${YELLOW}USAGE EXAMPLES:${NC}"
     echo -e "  ${GREEN}td 116${NC}              Deploy current project to 192.168.78.116"
-    echo -e "  ${GREEN}t pgtrust 116${NC}       Trust this computer for Postgres on .116"
-    echo -e "  ${GREEN}t rootsetup 11${NC}      Set Root password on .11 to match Sunbird's"
+    echo -e "  ${GREEN}t tomcatsetup 116${NC}   Enable Tomcat debug mode on .116"
 }

@@ -20,7 +20,8 @@ source "$SCRIPT_DIR/lib_ssh.sh"
 source "$SCRIPT_DIR/tool_cheatsheet.sh"
 source "$SCRIPT_DIR/tool_help.sh"
 source "$SCRIPT_DIR/tool_postgres.sh"   # Postgres Module
-source "$SCRIPT_DIR/tool_readme.sh"     # NEW: Readme Module
+source "$SCRIPT_DIR/tool_readme.sh"     # Readme Module
+source "$SCRIPT_DIR/tool_tomcat.sh"     # Tomcat Module
 # ================================================
 
 # ================= ARGUMENT PARSING =================
@@ -38,8 +39,7 @@ while [[ $# -gt 0 ]]; do
       esac
   else
       case $1 in
-        # RENAMED setroot -> rootsetup
-        deploy|dnfupdate|ssh|setpass|find|readme|rootsetup|pgtrust) MODE="$1"; shift ;;
+        deploy|dnfupdate|ssh|setpass|find|readme|rootsetup|pgtrust|tomcatsetup) MODE="$1"; shift ;;
         -f|-v|--version) export TARGET_VERSION="$2"; shift 2 ;;
         -l|--limit) export SEARCH_LIMIT="$2"; shift 2 ;;
         -h|--help|--h|-help) print_help; exit 0 ;;
@@ -93,11 +93,16 @@ case "$MODE" in
         pg_whitelist_ip "${REMOTE_USER}" "${TARGET_IP}"
         exit 0
         ;;
+    tomcatsetup)
+        if [ -z "$TARGET_IP" ]; then error_exit "IP Required for tomcatsetup."; fi
+        check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
+        enable_tomcat_debug "${REMOTE_USER}" "${TARGET_IP}"
+        exit 0
+        ;;
     find)
         cmd_search "$IP_SUFFIX"
         exit 0
         ;;
-    # NEW: Modularized Call
     readme)
         show_readme "$SCRIPT_DIR"
         exit 0
