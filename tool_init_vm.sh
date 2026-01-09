@@ -14,6 +14,12 @@ run_init_vm_flow() {
     ensure_bridge_password "false" "$TARGET_IP"
     setup_root_creds "$BRIDGE_USER" "$TARGET_IP"
 
+    # ================= 1.5 SSH KEY SETUP (FIX) =======
+    # Now that root is enabled, we MUST install the SSH key
+    # so the next steps don't ask for a password.
+    log_step "INIT-VM" "${YELLOW}[Key Sync] Installing SSH Key for Root...${NC}"
+    check_and_setup_ssh "$REMOTE_USER" "$TARGET_IP"
+
     # ================= 2. POSTGRES TRUST =============
     # Whitelists your IP in pg_hba.conf
     log_step "INIT-VM" "${YELLOW}[2/3] Configuring PostgreSQL Whitelist...${NC}"
@@ -30,6 +36,7 @@ run_init_vm_flow() {
     echo -e "${GREEN}  SUCCESS: VM ${TARGET_IP} Fully Initialized! ${NC}"
     echo -e "${GREEN}==============================================${NC}"
     echo -e "  1. Root Login:   ${GREEN}Enabled${NC}"
-    echo -e "  2. Postgres:     ${GREEN}Trusted (${TARGET_IP})${NC}"
-    echo -e "  3. Tomcat Debug: ${GREEN}Enabled (Port 8000)${NC}"
+    echo -e "  2. SSH Key:      ${GREEN}Installed${NC}"
+    echo -e "  3. Postgres:     ${GREEN}Trusted (${TARGET_IP})${NC}"
+    echo -e "  4. Tomcat Debug: ${GREEN}Enabled (Port 8000)${NC}"
 }
