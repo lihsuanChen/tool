@@ -22,6 +22,7 @@ source "$SCRIPT_DIR/tool_help.sh"
 source "$SCRIPT_DIR/tool_postgres.sh"   # Postgres Module
 source "$SCRIPT_DIR/tool_readme.sh"     # Readme Module
 source "$SCRIPT_DIR/tool_tomcat.sh"     # Tomcat Module
+source "$SCRIPT_DIR/tool_init_vm.sh"    # NEW: Init VM Module
 # ================================================
 
 # ================= ARGUMENT PARSING =================
@@ -39,7 +40,8 @@ while [[ $# -gt 0 ]]; do
       esac
   else
       case $1 in
-        deploy|dnfupdate|ssh|setpass|find|readme|rootsetup|pgtrust|tomcatsetup) MODE="$1"; shift ;;
+        # ADDED initvm
+        deploy|dnfupdate|ssh|setpass|find|readme|rootsetup|pgtrust|tomcatsetup|initvm) MODE="$1"; shift ;;
         -f|-v|--version) export TARGET_VERSION="$2"; shift 2 ;;
         -l|--limit) export SEARCH_LIMIT="$2"; shift 2 ;;
         -h|--help|--h|-help) print_help; exit 0 ;;
@@ -97,6 +99,13 @@ case "$MODE" in
         if [ -z "$TARGET_IP" ]; then error_exit "IP Required for tomcatsetup."; fi
         check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
         enable_tomcat_debug "${REMOTE_USER}" "${TARGET_IP}"
+        exit 0
+        ;;
+    # NEW: INIT VM COMMAND
+    initvm)
+        if [ -z "$TARGET_IP" ]; then error_exit "IP Required for initvm."; fi
+        # Note: We don't check root ssh yet because rootsetup fixes it!
+        run_init_vm_flow "${REMOTE_USER}" "${TARGET_IP}" "${BRIDGE_USER}"
         exit 0
         ;;
     find)

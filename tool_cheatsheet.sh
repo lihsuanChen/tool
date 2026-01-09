@@ -28,7 +28,7 @@ expand_concept() {
         unzip|untar|extract|unpack)               echo "unzip|untar|extract|unpack" ;;
         disk|space|usage|size|du|df)              echo "disk|space|usage|size|du|df" ;;
         mem|memory|ram|swap)                      echo "mem|memory|ram|swap" ;;
-        net|network|ip|port|socket|tcp|udp)       echo "net|network|ip|port|socket|tcp|udp" ;;
+        net|network|ip|port|socket|tcp|udp|packet|capture|sniff|tcpdump) echo "net|network|ip|port|socket|tcp|udp|packet|capture|sniff|tcpdump" ;;
         kill|stop|halt|pause)                     echo "kill|stop|halt|pause" ;;
         run|start|launch|exec)                    echo "run|start|launch|exec" ;;
         *) echo "$word" ;;

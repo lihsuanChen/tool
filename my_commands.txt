@@ -292,4 +292,9 @@ Bring job to foreground | fg %1
 History search command | history | grep "cmd"
 Clear terminal screen | clear
 Exit terminal session | exit
+
+# --- NETWORK PACKET CAPTURE ---
+Capture TCP packets containing string grep tcpdump | sudo tcpdump -i any port 61616 -s 0 -A -l | grep --line-buffered "My Data Center"
+Monitor ActiveMQ traffic specific port sniff | sudo tcpdump -i any port 61616 -s 0 -A -l
+
 EOF
