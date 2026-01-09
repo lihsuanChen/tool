@@ -52,8 +52,8 @@ while [[ $# -gt 0 ]]; do
   # Look for the command keyword.
   else
       case $1 in
-        # ADDED 'readme' to the accepted commands list
-        deploy|dnfupdate|ssh|setpass|find|readme) MODE="$1"; shift ;;
+        # ADDED 'setroot' to the accepted commands list
+        deploy|dnfupdate|ssh|setpass|find|readme|setroot) MODE="$1"; shift ;;
         -f|-v|--version) export TARGET_VERSION="$2"; shift 2 ;;
         # NEW: Parse limit flag here too
         -l|--limit) export SEARCH_LIMIT="$2"; shift 2 ;;
@@ -102,6 +102,13 @@ case "$MODE" in
         ;;
     setpass)
         ensure_bridge_password "true" "$TARGET_IP"
+        exit 0
+        ;;
+    # NEW: SET ROOT PASSWORD COMMAND
+    setroot)
+        if [ -z "$TARGET_IP" ]; then error_exit "IP Required for setroot."; fi
+        ensure_bridge_password "false" "$TARGET_IP"
+        setup_root_creds "${BRIDGE_USER}" "${TARGET_IP}"
         exit 0
         ;;
     find)

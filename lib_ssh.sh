@@ -52,17 +52,16 @@ ensure_bridge_password() {
 
             local CHECK_IP="$TEST_IP"
 
-            # If we don't have an IP to check against, ask optionally
             if [ -z "$CHECK_IP" ]; then
                 echo -e "${BLUE}Tip: Provide an IP to verify this password works.${NC}"
                 read -p "Validation IP (Press Enter to skip check): " USER_IP
-                if [ -n "$USER_IP" ]; then
-                     CHECK_IP="$USER_IP" # Assume full IP for simplicity here
-                fi
+                if [ -n "$USER_IP" ]; then CHECK_IP="$USER_IP"; fi
             fi
 
             if [ -n "$CHECK_IP" ]; then
                 echo -n "Verifying password against $CHECK_IP... "
+                # Attempt connection; if it fails, it might be a key issue, but we only validate password here.
+                # We use StrictHostKeyChecking=no to try and bypass prompts, but known_hosts conflicts still block it.
                 sshpass -p "$PASSWORD" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 "${BRIDGE_USER}@${CHECK_IP}" "exit" 2>/dev/null
 
                 if [ $? -eq 0 ]; then
@@ -70,13 +69,11 @@ ensure_bridge_password() {
                     break
                 else
                     echo -e "${RED}FAILED.${NC}"
-                    echo -e "Password rejected by ${BRIDGE_USER}@${CHECK_IP}."
+                    # NEW: Hint about host key issues during password check
+                    echo -e "Password rejected (or Host Key Changed) by ${BRIDGE_USER}@${CHECK_IP}."
 
                     read -p "Try typing it again? (y/n): " RETRY
-                    if [[ "$RETRY" =~ ^[Nn]$ ]]; then
-                         echo -e "${RED}Aborted by user.${NC}"
-                         exit 1
-                    fi
+                    if [[ "$RETRY" =~ ^[Nn]$ ]]; then echo -e "${RED}Aborted by user.${NC}"; exit 1; fi
                 fi
             else
                 echo -e "${YELLOW}Skipping verification.${NC}"
@@ -90,13 +87,57 @@ ensure_bridge_password() {
     fi
 }
 
-# ================= UPDATED SSH INSTALL LOGIC =================
+# ================= NEW: SETUP ROOT CREDENTIALS =================
+setup_root_creds() {
+    local BRIDGE=$1  # The user we login as (sunbird)
+    local IP=$2
+
+    # 1. Get the password we recorded for the bridge user
+    if [ ! -f "$AUTH_FILE" ]; then
+        error_exit "No saved password found. Run 't setpass' first."
+    fi
+    local PASS=$(cat "$AUTH_FILE")
+
+    log_step "ROOT-SETUP" "Setting Remote Root Password to match '${BRIDGE}'..."
+
+    # NEW: SELF-HEALING CHECK (Fixes 'Host Identification Changed')
+    # We verify if we can connect. If not, we wipe the bad key and try again.
+    sshpass -p "$PASS" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 "${BRIDGE}@${IP}" "exit" 2>/dev/null
+    if [ $? -ne 0 ]; then
+        echo -e "${YELLOW}Connection check failed. Attempting to fix Host Key...${NC}"
+        ssh-keygen -R "$IP" &>/dev/null
+    fi
+
+    # 2. Construct Remote Command (Run as Bridge -> Sudo -> Bash)
+    REMOTE_SCRIPT="echo '$PASS' | sudo -S -p '' bash -c '
+        echo \"[Remote] Syncing Root Password...\";
+        echo \"root:$PASS\" | chpasswd;
+
+        echo \"[Remote] Configuring SSHD for Root Login...\";
+        sed -i \"s/^#\?PermitRootLogin.*/PermitRootLogin yes/g\" /etc/ssh/sshd_config;
+        sed -i \"s/^#\?PasswordAuthentication.*/PasswordAuthentication yes/g\" /etc/ssh/sshd_config;
+
+        echo \"[Remote] Restarting SSHD...\";
+        if command -v systemctl &> /dev/null; then systemctl restart sshd; else service sshd restart; fi
+    '"
+
+    # 3. Execute via SSHPASS
+    sshpass -p "$PASS" ssh -o StrictHostKeyChecking=no -t "${BRIDGE}@${IP}" "$REMOTE_SCRIPT"
+
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}SUCCESS: Root setup complete on ${IP}.${NC}"
+        echo -e "You can now login directly: ${YELLOW}ssh root@${IP}${NC}"
+    else
+        error_exit "Failed to set root credentials. (Does $BRIDGE have sudo rights?)"
+    fi
+}
+
+# ================= SSH INSTALL KEY LOGIC =================
 install_ssh_key() {
     local USER=$1
     local IP=$2
     local BRIDGE="sunbird"
 
-    # 1. Ensure we have A password (any password) to start
     ensure_bridge_password "false" "$IP"
     local PASS=$(cat "$AUTH_FILE")
     ensure_local_key
@@ -111,33 +152,19 @@ install_ssh_key() {
     if [ $? -ne 0 ]; then
         echo -e "${YELLOW}Authentication failed with stored password.${NC}"
         echo -e "The saved password seems incorrect for ${YELLOW}${IP}${NC}."
-
-        # Force update the password (this function validates it before returning)
         ensure_bridge_password "true" "$IP"
-
-        # Reload the new valid password
         PASS=$(cat "$AUTH_FILE")
-
-        # Retry Upload
         echo -e "Retrying upload with new password..."
         sshpass -p "$PASS" scp -o StrictHostKeyChecking=no ~/.ssh/id_rsa.pub ${BRIDGE}@${IP}:/tmp/temp_key.pub
-
-        if [ $? -ne 0 ]; then
-            error_exit "Still failed to upload key even after password update."
-        fi
+        if [ $? -ne 0 ]; then error_exit "Still failed to upload key."; fi
     fi
 
-    # 4. EXECUTE ROOT ESCALATION
     echo -e "Configuring Root Access & SSH Config..."
     REMOTE_SCRIPT="echo '$PASS' | sudo -S -p '' bash -c 'echo \"[Remote] Configuring sshd...\"; sed -i \"s/^#\?PermitRootLogin.*/PermitRootLogin yes/g\" /etc/ssh/sshd_config; echo \"[Remote] Installing keys...\"; mkdir -p /root/.ssh; cat /tmp/temp_key.pub >> /root/.ssh/authorized_keys; chmod 600 /root/.ssh/authorized_keys; chmod 700 /root/.ssh; rm /tmp/temp_key.pub; echo \"[Remote] Restarting SSHD...\"; if command -v systemctl &> /dev/null; then systemctl restart sshd; else service sshd restart; fi'"
 
     sshpass -p "$PASS" ssh -o StrictHostKeyChecking=no ${BRIDGE}@${IP} "$REMOTE_SCRIPT"
 
-    if [ $? -eq 0 ]; then
-        echo -e "${GREEN}Bootstrap Complete! Root access established.${NC}"
-    else
-        error_exit "Failed to configure remote server."
-    fi
+    if [ $? -eq 0 ]; then echo -e "${GREEN}Bootstrap Complete!${NC}"; else error_exit "Failed to configure remote server."; fi
 }
 
 check_and_setup_ssh() {
@@ -151,6 +178,7 @@ check_and_setup_ssh() {
         return 0
     else
         echo -e "${YELLOW}SSH failed. Initiating Setup Protocol...${NC}"
+        # SELF-HEALING: Clear bad key before trying setup
         ssh-keygen -R "$IP" &>/dev/null
         install_ssh_key "$USER" "$IP"
 

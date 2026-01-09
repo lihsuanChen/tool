@@ -14,6 +14,8 @@ print_help() {
     echo -e "  ${GREEN}dnfupdate <IP>${NC}   Run DNF Update script on remote."
     echo -e "  ${GREEN}setpass [IP]${NC}     Update stored password for Bridge User (${BRIDGE_USER})."
     echo -e "                     (Optional IP allows validating the new password immediately)"
+    echo -e "  ${GREEN}setroot <IP>${NC}     Sync Root password with Bridge password & enable Root Login."
+    echo -e "  ${GREEN}readme${NC}           Show the documentation (README.md)."
     echo -e ""
     echo -e "${YELLOW}DATA SOURCE (for 'tf'):${NC}"
     echo -e "  File Path: ${WHITE}$CMD_LIBRARY${NC}"
@@ -35,4 +37,5 @@ print_help() {
     echo -e "  ${GREEN}td 77.116${NC}           Deploy to custom subnet 192.168.77.116"
     echo -e "  ${GREEN}tf docker${NC}           Search cheatsheet for 'docker' commands"
     echo -e "  ${GREEN}t setpass${NC}           Reset the saved password for user '$BRIDGE_USER'"
+    echo -e "  ${GREEN}t setroot 11${NC}        Set Root password on .11 to match Sunbird's"
 }
