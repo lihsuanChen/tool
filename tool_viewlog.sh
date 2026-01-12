@@ -43,31 +43,30 @@ view_remote_log_gui() {
 
     # 1. MAIN MENU
     echo -e "${YELLOW}Select a log file to open:${NC}"
-    echo -e "  ${GREEN}1)${NC} /var/log/tomcat10/dcTrackServer.log"
-    echo -e "  ${GREEN}2)${NC} /var/log/tomcat10/catalina.out"
-    echo -e "  ${GREEN}3)${NC} /var/log/tomcat10/access_logs.out"
-    echo -e "  ${GREEN}4)${NC} PostgreSQL Logs (Dynamic List)"
-    echo -e "  ${GREEN}5)${NC} Custom Path..."
-    echo -e "  ${GREEN}0)${NC} Cancel"
+    echo -e "  ${GREEN}1)${NC}  PostgreSQL Logs (Dynamic List)"
+    echo -e "  ${GREEN}2)${NC}  /var/log/tomcat10/dcTrackServer.log"
+    echo -e "  ${GREEN}3)${NC}  /var/log/tomcat10/catalina.out"
+    echo -e "  ${GREEN}4)${NC}  /var/log/tomcat10/access_logs.out"
+    echo -e "  ${GREEN}5)${NC}  /var/log/tomcat10/floorMapsService.log"
+    echo -e "  ${GREEN}6)${NC}  /var/log/tomcat10/gc.log"
+    echo -e "  ${GREEN}7)${NC}  /var/log/tomcat10/wfPluginsLog.log"
+    echo -e "  ${GREEN}8)${NC}  /var/log/oculan/backup-restore.log"
+    echo -e "  ${GREEN}9)${NC}  /var/log/oculan/database-init.log"
+    echo -e "  ${GREEN}10)${NC} /var/log/oculanupgrade.log"
+    echo -e "  ${GREEN}11)${NC} /var/oculan/activemq/data/activemq.log"
+    echo -e "  ${GREEN}12)${NC} Custom Path..."
+    echo -e "  ${GREEN}0)${NC}  Cancel"
 
-    read -p "Enter choice [1-5]: " LOG_CHOICE
+    read -p "Enter choice [1-12]: " LOG_CHOICE
 
     TARGET_LOG=""
     case "$LOG_CHOICE" in
-        1) TARGET_LOG="/var/log/tomcat10/dcTrackServer.log" ;;
-        2) TARGET_LOG="/var/log/tomcat10/catalina.out" ;;
-        3) TARGET_LOG="/var/log/tomcat10/access_logs.out" ;;
-        5) read -p "Enter full path: " TARGET_LOG ;;
-        0) echo "Cancelled."; exit 0 ;;
-
-        # === NEW: DYNAMIC POSTGRES LIST ===
-        4)
+        # === OPTION 1: DYNAMIC POSTGRES LIST ===
+        1)
             echo -e "${YELLOW}Fetching PostgreSQL logs list from remote...${NC}"
             # Find logs, print 'Timestamp|Date Time|Path', sort by timestamp desc (newest first)
-            # Requires remote find and sort
             REMOTE_CMD="find /var/lib/pgsql/data/log/ -maxdepth 1 -name 'postgresql-*.log' -printf '%T@|%Ty-%Tm-%Td %TH:%TM|%p\n' 2>/dev/null | sort -nr"
 
-            # Read into array (Safe for spaces in filenames)
             mapfile -t PG_LOGS < <(ssh "${REMOTE_USER}@${TARGET_IP}" "$REMOTE_CMD")
 
             if [ ${#PG_LOGS[@]} -eq 0 ]; then
@@ -77,20 +76,16 @@ view_remote_log_gui() {
 
             echo -e "${YELLOW}Available PostgreSQL Logs (Sorted by Date):${NC}"
 
-            # Arrays to store paths for selection
             declare -a LOG_PATHS
             COUNT=1
 
             for line in "${PG_LOGS[@]}"; do
-                # Parse the line: Timestamp|DateTime|Path
                 IFS='|' read -r TS DATE PATH_VAL <<< "$line"
-
                 LOG_PATHS[$COUNT]="$PATH_VAL"
                 BASENAME=$(basename "$PATH_VAL")
 
-                # Highlight the FIRST (Newest) file in Yellow, others in Green
                 if [ $COUNT -eq 1 ]; then
-                    echo -e "  ${GREEN}${COUNT})${NC} ${BLUE}${BASENAME}${NC}  ${BLUE}(Updated: ${DATE}) ${BLUE}[Latest]${NC}"
+                    echo -e "  ${GREEN}${COUNT})${NC} ${BLUE}${BASENAME}${NC}  ${BLUE}(Updated: ${DATE}) ${BLUE}[LATEST]${NC}"
                 else
                     echo -e "  ${GREEN}${COUNT})${NC} ${BASENAME}  (Updated: ${DATE})"
                 fi
@@ -106,6 +101,20 @@ view_remote_log_gui() {
                 echo "Cancelled or Invalid."; exit 0
             fi
             ;;
+
+        # === STANDARD LOGS ===
+        2) TARGET_LOG="/var/log/tomcat10/dcTrackServer.log" ;;
+        3) TARGET_LOG="/var/log/tomcat10/catalina.out" ;;
+        4) TARGET_LOG="/var/log/tomcat10/access_logs.out" ;;
+        5) TARGET_LOG="/var/log/tomcat10/floorMapsService.log" ;;
+        6) TARGET_LOG="/var/log/tomcat10/gc.log" ;;
+        7) TARGET_LOG="/var/log/tomcat10/wfPluginsLog.log" ;;
+        8) TARGET_LOG="/var/log/oculan/backup-restore.log" ;;
+        9) TARGET_LOG="/var/log/oculan/database-init.log" ;;
+        10) TARGET_LOG="/var/log/oculanupgrade.log" ;;
+        11) TARGET_LOG="/var/oculan/activemq/data/activemq.log" ;;
+        12) read -p "Enter full path: " TARGET_LOG ;;
+        0) echo "Cancelled."; exit 0 ;;
         *) echo "Invalid choice."; exit 1 ;;
     esac
 
