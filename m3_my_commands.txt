@@ -294,7 +294,7 @@ Clear terminal screen | clear
 Exit terminal session | exit
 
 # --- NETWORK PACKET CAPTURE ---
-Capture TCP packets containing string grep tcpdump | sudo tcpdump -i any port 61616 -s 0 -A -l | grep --line-buffered "My Data Center"
-Monitor ActiveMQ traffic specific port sniff | sudo tcpdump -i any port 61616 -s 0 -A -l
+Capture/listen/trace TCP packets containing string grep tcpdump | sudo tcpdump -i any port 61616 -s 0 -A -l | grep --line-buffered "My Data Center"
+Monitor/listen/trace ActiveMQ traffic specific port sniff | sudo tcpdump -i any port 61616 -s 0 -A -l
 
 EOF

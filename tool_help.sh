@@ -17,6 +17,8 @@ print_help() {
     echo -e "  ${GREEN}pgtrust <IP>${NC}     Whitelist YOUR current IP in remote PostgreSQL."
     echo -e "  ${GREEN}tomcatsetup <IP>${NC} Enable Tomcat Remote Debugging (Port 8000)."
     echo -e "  ${GREEN}initvm <IP>${NC}      ${C_WARN}Full Init:${NC} Runs rootsetup + pgtrust + tomcatsetup."
+    echo -e "  ${GREEN}viewlog <IP>${NC}     Open remote logs (Aliases: log, logview)."
+    echo -e "  ${GREEN}setviewer${NC}        Switch preferred viewer (${GREEN}lnav${NC} or ${GREEN}glogg${NC})."
     echo -e "  ${GREEN}readme${NC}           Show the documentation (README.md)."
     echo -e ""
     echo -e "${YELLOW}DATA SOURCE (for 'tf'):${NC}"
@@ -32,5 +34,5 @@ print_help() {
     echo -e ""
     echo -e "${YELLOW}USAGE EXAMPLES:${NC}"
     echo -e "  ${GREEN}td 116${NC}              Deploy current project to 192.168.78.116"
-    echo -e "  ${GREEN}t initvm 116${NC}        Prepare a fresh VM for development"
+    echo -e "  ${GREEN}t setviewer${NC}         Switch from lnav to glogg"
 }

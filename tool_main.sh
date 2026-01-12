@@ -20,9 +20,10 @@ source "$SCRIPT_DIR/m1_lib_ssh.sh"
 source "$SCRIPT_DIR/m3_tool_cheatsheet.sh"
 source "$SCRIPT_DIR/tool_help.sh"
 source "$SCRIPT_DIR/m4_tool_postgres.sh"   # Postgres Module
-source "$SCRIPT_DIR/tool_readme.sh"     # Readme Module
+source "$SCRIPT_DIR/tool_readme.sh"        # Readme Module
 source "$SCRIPT_DIR/m4_tool_tomcat.sh"     # Tomcat Module
-source "$SCRIPT_DIR/m4_tool_init_vm.sh"    # NEW: Init VM Module
+source "$SCRIPT_DIR/m4_tool_init_vm.sh"    # Init VM Module
+source "$SCRIPT_DIR/tool_viewlog.sh"       # View Log Module
 # ================================================
 
 # ================= ARGUMENT PARSING =================
@@ -40,8 +41,8 @@ while [[ $# -gt 0 ]]; do
       esac
   else
       case $1 in
-        # ADDED initvm
-        deploy|dnfupdate|ssh|setpass|find|readme|rootsetup|pgtrust|tomcatsetup|initvm) MODE="$1"; shift ;;
+        # ADDED setviewer
+        deploy|dnfupdate|ssh|setpass|find|readme|rootsetup|pgtrust|tomcatsetup|initvm|viewlog|logview|log|setviewer) MODE="$1"; shift ;;
         -f|-v|--version) export TARGET_VERSION="$2"; shift 2 ;;
         -l|--limit) export SEARCH_LIMIT="$2"; shift 2 ;;
         -h|--help|--h|-help) print_help; exit 0 ;;
@@ -101,11 +102,20 @@ case "$MODE" in
         enable_tomcat_debug "${REMOTE_USER}" "${TARGET_IP}"
         exit 0
         ;;
-    # NEW: INIT VM COMMAND
     initvm)
         if [ -z "$TARGET_IP" ]; then error_exit "IP Required for initvm."; fi
-        # Note: We don't check root ssh yet because rootsetup fixes it!
         run_init_vm_flow "${REMOTE_USER}" "${TARGET_IP}" "${BRIDGE_USER}"
+        exit 0
+        ;;
+    viewlog|logview|log)
+        if [ -z "$TARGET_IP" ]; then error_exit "IP Required for viewlog."; fi
+        check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
+        view_remote_log_gui "${REMOTE_USER}" "${TARGET_IP}"
+        exit 0
+        ;;
+    # NEW: SWITCH VIEWER PREFERENCE
+    setviewer)
+        switch_log_viewer
         exit 0
         ;;
     find)
