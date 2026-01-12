@@ -4,7 +4,7 @@
 export REMOTE_USER="root"
 export BRIDGE_USER="sunbird"
 export AUTH_FILE="$HOME/.sunbird_auth"
-export CMD_LIBRARY="$HOME/scripts/my_commands.txt"
+export CMD_LIBRARY="$HOME/scripts/m3_my_commands.txt"
 export BASE_IP="192.168"
 export DEFAULT_SUBNET="78"
 export LOCAL_DNF_SCRIPT="$HOME/projects/test_automation/dnfupdate.sh"
@@ -16,13 +16,13 @@ export DEFAULT_SEARCH_LIMIT="8"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # ================= LOAD MODULES =================
-source "$SCRIPT_DIR/lib_ssh.sh"
-source "$SCRIPT_DIR/tool_cheatsheet.sh"
+source "$SCRIPT_DIR/m1_lib_ssh.sh"
+source "$SCRIPT_DIR/m3_tool_cheatsheet.sh"
 source "$SCRIPT_DIR/tool_help.sh"
-source "$SCRIPT_DIR/tool_postgres.sh"   # Postgres Module
+source "$SCRIPT_DIR/m4_tool_postgres.sh"   # Postgres Module
 source "$SCRIPT_DIR/tool_readme.sh"     # Readme Module
-source "$SCRIPT_DIR/tool_tomcat.sh"     # Tomcat Module
-source "$SCRIPT_DIR/tool_init_vm.sh"    # NEW: Init VM Module
+source "$SCRIPT_DIR/m4_tool_tomcat.sh"     # Tomcat Module
+source "$SCRIPT_DIR/m4_tool_init_vm.sh"    # NEW: Init VM Module
 # ================================================
 
 # ================= ARGUMENT PARSING =================
@@ -65,13 +65,13 @@ case "$MODE" in
         if [ -z "$TARGET_IP" ]; then error_exit "IP Required for deploy."; fi
         check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
         log_step "MAIN" "Starting Deployment Process..."
-        bash "$SCRIPT_DIR/process_deploy.sh"
+        bash "$SCRIPT_DIR/m5_process_deploy.sh"
         ;;
     dnfupdate)
         if [ -z "$TARGET_IP" ]; then error_exit "IP Required for dnfupdate."; fi
         check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
         log_step "MAIN" "Starting DNF Update Process..."
-        bash "$SCRIPT_DIR/process_dnfupdate.sh"
+        bash "$SCRIPT_DIR/m2_process_dnfupdate.sh"
         ;;
     ssh)
         if [ -z "$TARGET_IP" ]; then error_exit "IP Required for ssh."; fi

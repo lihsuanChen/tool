@@ -1,6 +1,6 @@
 #!/bin/bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/lib_ssh.sh"
+source "$SCRIPT_DIR/m1_lib_ssh.sh"
 
 REMOTE_CLIENT_DEST="/opt/raritan/dcTrack/appClient"
 

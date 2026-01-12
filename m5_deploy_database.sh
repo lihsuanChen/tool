@@ -1,6 +1,6 @@
 #!/bin/bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/lib_ssh.sh"
+source "$SCRIPT_DIR/m1_lib_ssh.sh"
 
 LOCAL_CHANGESETS="./src/files/opt/raritan/liquibase/changesets"
 REMOTE_DB_DEST="/var/oculan/raritan/liquibase/changesets"

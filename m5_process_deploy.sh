@@ -2,7 +2,7 @@
 
 # ALWAYS load the library
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/lib_ssh.sh"
+source "$SCRIPT_DIR/m1_lib_ssh.sh"
 
 # ================= DETECT CONTEXT =================
 CURRENT_DIR=$(pwd)
@@ -12,19 +12,19 @@ BASENAME=$(basename "$CURRENT_DIR")
 # Fingerprint: Folder is named 'server' AND contains 'dcTrackApp'
 if [ "$BASENAME" == "server" ] && [ -d "./dcTrackApp" ]; then
     log_step "DEPLOY" "Detected Repository Type: ${YELLOW}SERVER${NC}"
-    bash "$SCRIPT_DIR/deploy_server.sh"
+    bash "$SCRIPT_DIR/m5_deploy_server.sh"
 
 # Check 2: CLIENT Mode (Node.js)
 # Fingerprint: Folder name contains 'client' AND contains 'package.json'
 elif [[ "$CURRENT_DIR" == *"client"* ]] && [ -f "./package.json" ]; then
     log_step "DEPLOY" "Detected Repository Type: ${YELLOW}CLIENT${NC}"
-    bash "$SCRIPT_DIR/deploy_client.sh"
+    bash "$SCRIPT_DIR/m5_deploy_client.sh"
 
 # Check 3: DB MIGRATION Mode (Liquibase)
 # Fingerprint: The unique changesets directory structure exists
 elif [ -d "./src/files/opt/raritan/liquibase/changesets" ]; then
     log_step "DEPLOY" "Detected Repository Type: ${YELLOW}DATABASE${NC}"
-    bash "$SCRIPT_DIR/deploy_database.sh"
+    bash "$SCRIPT_DIR/m5_deploy_database.sh"
 
 else
     echo -e "${RED}CRITICAL ERROR: Unknown Repository Context${NC}"

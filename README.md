@@ -15,12 +15,12 @@ A modular shell script suite for automating Java WAR deployments, Node.js Client
 
 ### 1. Setup Scripts
 Place all script files into `~/scripts/`:
-* `tool_main.sh`, `tool_help.sh`, `tool_cheatsheet.sh`, `lib_ssh.sh`
-* `process_deploy.sh`, `deploy_server.sh`, `deploy_client.sh`, `deploy_database.sh`
-* `process_dnfupdate.sh`
+* `tool_main.sh`, `tool_help.sh`, `m3_tool_cheatsheet.sh`, `m1_lib_ssh.sh`
+* `m5_process_deploy.sh`, `m5_deploy_server.sh`, `m5_deploy_client.sh`, `m5_deploy_database.sh`
+* `m2_process_dnfupdate.sh`
 
 ### 2. Init Setting and Configure Aliases
 1.  Run the setup script to add aliases (`t`, `td`, `tf`) to your `.bashrc`:
     ```bash
-    source ~/scripts/setup_alias.sh
+    source ~/scripts/tool_install.sh
     ```
