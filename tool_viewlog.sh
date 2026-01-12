@@ -52,7 +52,7 @@ view_remote_log_gui() {
     echo -e "  ${GREEN}7)${NC}  /var/log/tomcat10/wfPluginsLog.log"
     echo -e "  ${GREEN}8)${NC}  /var/log/oculan/backup-restore.log"
     echo -e "  ${GREEN}9)${NC}  /var/log/oculan/database-init.log"
-    echo -e "  ${GREEN}10)${NC} /var/log/oculanupgrade.log"
+    echo -e "  ${GREEN}10)${NC} /var/log/oculan/upgrade.log"
     echo -e "  ${GREEN}11)${NC} /var/oculan/activemq/data/activemq.log"
     echo -e "  ${GREEN}12)${NC} Custom Path..."
     echo -e "  ${GREEN}0)${NC}  Cancel"
@@ -111,7 +111,7 @@ view_remote_log_gui() {
         7) TARGET_LOG="/var/log/tomcat10/wfPluginsLog.log" ;;
         8) TARGET_LOG="/var/log/oculan/backup-restore.log" ;;
         9) TARGET_LOG="/var/log/oculan/database-init.log" ;;
-        10) TARGET_LOG="/var/log/oculanupgrade.log" ;;
+        10) TARGET_LOG="/var/log/oculan/upgrade.log" ;;
         11) TARGET_LOG="/var/oculan/activemq/data/activemq.log" ;;
         12) read -p "Enter full path: " TARGET_LOG ;;
         0) echo "Cancelled."; exit 0 ;;

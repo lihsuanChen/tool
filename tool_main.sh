@@ -19,11 +19,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/m1_lib_ssh.sh"
 source "$SCRIPT_DIR/m3_tool_cheatsheet.sh"
 source "$SCRIPT_DIR/tool_help.sh"
-source "$SCRIPT_DIR/m4_tool_postgres.sh"   # Postgres Module
-source "$SCRIPT_DIR/tool_readme.sh"        # Readme Module
-source "$SCRIPT_DIR/m4_tool_tomcat.sh"     # Tomcat Module
-source "$SCRIPT_DIR/m4_tool_init_vm.sh"    # Init VM Module
-source "$SCRIPT_DIR/tool_viewlog.sh"       # View Log Module
+source "$SCRIPT_DIR/m4_tool_postgres.sh"
+source "$SCRIPT_DIR/tool_readme.sh"
+source "$SCRIPT_DIR/m4_tool_tomcat.sh"
+source "$SCRIPT_DIR/m4_tool_init_vm.sh"
+source "$SCRIPT_DIR/tool_viewlog.sh"
 # ================================================
 
 # ================= ARGUMENT PARSING =================
@@ -41,8 +41,8 @@ while [[ $# -gt 0 ]]; do
       esac
   else
       case $1 in
-        # ADDED setviewer
-        deploy|dnfupdate|ssh|setpass|find|readme|rootsetup|pgtrust|tomcatsetup|initvm|viewlog|logview|log|setviewer) MODE="$1"; shift ;;
+        # UPDATED: Renamed setviewer -> setlogviewer
+        deploy|dnfupdate|ssh|setpass|find|readme|rootsetup|pgtrust|tomcatsetup|initvm|viewlog|logview|log|setlogviewer) MODE="$1"; shift ;;
         -f|-v|--version) export TARGET_VERSION="$2"; shift 2 ;;
         -l|--limit) export SEARCH_LIMIT="$2"; shift 2 ;;
         -h|--help|--h|-help) print_help; exit 0 ;;
@@ -113,8 +113,8 @@ case "$MODE" in
         view_remote_log_gui "${REMOTE_USER}" "${TARGET_IP}"
         exit 0
         ;;
-    # NEW: SWITCH VIEWER PREFERENCE
-    setviewer)
+    # UPDATED: RENAMED COMMAND
+    setlogviewer)
         switch_log_viewer
         exit 0
         ;;

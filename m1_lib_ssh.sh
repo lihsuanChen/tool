@@ -69,7 +69,7 @@ ensure_bridge_password() {
                     break
                 else
                     echo -e "${RED}FAILED.${NC}"
-                    # NEW: Hint about host key issues during password check
+                    # Hint about host key issues during password check
                     echo -e "Password rejected (or Host Key Changed) by ${BRIDGE_USER}@${CHECK_IP}."
 
                     read -p "Try typing it again? (y/n): " RETRY
@@ -87,7 +87,7 @@ ensure_bridge_password() {
     fi
 }
 
-# ================= NEW: SETUP ROOT CREDENTIALS =================
+# ================= SETUP ROOT CREDENTIALS (WITH PROMPT) =================
 setup_root_creds() {
     local BRIDGE=$1  # The user we login as (sunbird)
     local IP=$2
@@ -98,35 +98,53 @@ setup_root_creds() {
     fi
     local PASS=$(cat "$AUTH_FILE")
 
-    log_step "ROOT-SETUP" "Setting Remote Root Password to match '${BRIDGE}'..."
+    log_step "ROOT-SETUP" "Configuring Root Access via '${BRIDGE}'..."
 
-    # NEW: SELF-HEALING CHECK (Fixes 'Host Identification Changed')
-    # We verify if we can connect. If not, we wipe the bad key and try again.
+    # SELF-HEALING CHECK (Fixes 'Host Identification Changed')
     sshpass -p "$PASS" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 "${BRIDGE}@${IP}" "exit" 2>/dev/null
     if [ $? -ne 0 ]; then
         echo -e "${YELLOW}Connection check failed. Attempting to fix Host Key...${NC}"
         ssh-keygen -R "$IP" &>/dev/null
     fi
 
-    # 2. Construct Remote Command (Run as Bridge -> Sudo -> Bash)
+    # 2. PROMPT FOR PASSWORD OVERWRITE
+    echo -e "${YELLOW}Warning: This will configure SSHD and optionally sync credentials.${NC}"
+    echo -e "Do you want to OVERWRITE the remote 'root' password to match the bridge password?"
+    read -p "Sync Password? (y/N): " SYNC_CONFIRM
+
+    local PASS_CMD=""
+    if [[ "$SYNC_CONFIRM" =~ ^[Yy]$ ]]; then
+        echo -e "${BLUE}Will sync password.${NC}"
+        PASS_CMD="echo \"[Remote] Syncing Root Password...\"; echo \"root:$PASS\" | chpasswd;"
+    else
+        echo -e "${BLUE}Skipping password change (Configuring SSHD only).${NC}"
+        PASS_CMD="echo \"[Remote] Keeping existing Root Password...\";"
+    fi
+
+    # 3. Construct Remote Command (Run as Bridge -> Sudo -> Bash)
     REMOTE_SCRIPT="echo '$PASS' | sudo -S -p '' bash -c '
-        echo \"[Remote] Syncing Root Password...\";
-        echo \"root:$PASS\" | chpasswd;
+        $PASS_CMD
 
         echo \"[Remote] Configuring SSHD for Root Login...\";
+        # Ensure Root Login is allowed
         sed -i \"s/^#\?PermitRootLogin.*/PermitRootLogin yes/g\" /etc/ssh/sshd_config;
+
+        # Ensure Password Auth is allowed (Required if we just set the password)
         sed -i \"s/^#\?PasswordAuthentication.*/PasswordAuthentication yes/g\" /etc/ssh/sshd_config;
+
+        # Ensure Pubkey Auth is allowed (Good practice)
+        sed -i \"s/^#\?PubkeyAuthentication.*/PubkeyAuthentication yes/g\" /etc/ssh/sshd_config;
 
         echo \"[Remote] Restarting SSHD...\";
         if command -v systemctl &> /dev/null; then systemctl restart sshd; else service sshd restart; fi
     '"
 
-    # 3. Execute via SSHPASS
+    # 4. Execute via SSHPASS
     sshpass -p "$PASS" ssh -o StrictHostKeyChecking=no -t "${BRIDGE}@${IP}" "$REMOTE_SCRIPT"
 
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}SUCCESS: Root setup complete on ${IP}.${NC}"
-        echo -e "You can now login directly: ${YELLOW}ssh root@${IP}${NC}"
+        echo -e "You can now login: ${YELLOW}ssh root@${IP}${NC}"
     else
         error_exit "Failed to set root credentials. (Does $BRIDGE have sudo rights?)"
     fi
