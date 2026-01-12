@@ -41,23 +41,71 @@ view_remote_log_gui() {
 
     log_step "VIEWLOG" "Using viewer: ${YELLOW}${USE_VIEWER}${NC} on ${TARGET_IP}..."
 
-    # 1. SELECT LOG FILE
+    # 1. MAIN MENU
     echo -e "${YELLOW}Select a log file to open:${NC}"
     echo -e "  ${GREEN}1)${NC} /var/log/tomcat10/dcTrackServer.log"
     echo -e "  ${GREEN}2)${NC} /var/log/tomcat10/catalina.out"
     echo -e "  ${GREEN}3)${NC} /var/log/tomcat10/access_logs.out"
-    echo -e "  ${GREEN}4)${NC} Custom Path..."
+    echo -e "  ${GREEN}4)${NC} PostgreSQL Logs (Dynamic List)"
+    echo -e "  ${GREEN}5)${NC} Custom Path..."
     echo -e "  ${GREEN}0)${NC} Cancel"
 
-    read -p "Enter choice [1-4]: " LOG_CHOICE
+    read -p "Enter choice [1-5]: " LOG_CHOICE
 
     TARGET_LOG=""
     case "$LOG_CHOICE" in
         1) TARGET_LOG="/var/log/tomcat10/dcTrackServer.log" ;;
         2) TARGET_LOG="/var/log/tomcat10/catalina.out" ;;
         3) TARGET_LOG="/var/log/tomcat10/access_logs.out" ;;
-        4) read -p "Enter full path: " TARGET_LOG ;;
+        5) read -p "Enter full path: " TARGET_LOG ;;
         0) echo "Cancelled."; exit 0 ;;
+
+        # === NEW: DYNAMIC POSTGRES LIST ===
+        4)
+            echo -e "${YELLOW}Fetching PostgreSQL logs list from remote...${NC}"
+            # Find logs, print 'Timestamp|Date Time|Path', sort by timestamp desc (newest first)
+            # Requires remote find and sort
+            REMOTE_CMD="find /var/lib/pgsql/data/log/ -maxdepth 1 -name 'postgresql-*.log' -printf '%T@|%Ty-%Tm-%Td %TH:%TM|%p\n' 2>/dev/null | sort -nr"
+
+            # Read into array (Safe for spaces in filenames)
+            mapfile -t PG_LOGS < <(ssh "${REMOTE_USER}@${TARGET_IP}" "$REMOTE_CMD")
+
+            if [ ${#PG_LOGS[@]} -eq 0 ]; then
+                echo -e "${RED}No PostgreSQL logs found in /var/lib/pgsql/data/log/${NC}"
+                return
+            fi
+
+            echo -e "${YELLOW}Available PostgreSQL Logs (Sorted by Date):${NC}"
+
+            # Arrays to store paths for selection
+            declare -a LOG_PATHS
+            COUNT=1
+
+            for line in "${PG_LOGS[@]}"; do
+                # Parse the line: Timestamp|DateTime|Path
+                IFS='|' read -r TS DATE PATH_VAL <<< "$line"
+
+                LOG_PATHS[$COUNT]="$PATH_VAL"
+                BASENAME=$(basename "$PATH_VAL")
+
+                # Highlight the FIRST (Newest) file in Yellow, others in Green
+                if [ $COUNT -eq 1 ]; then
+                    echo -e "  ${GREEN}${COUNT})${NC} ${BLUE}${BASENAME}${NC}  ${BLUE}(Updated: ${DATE}) ${BLUE}[Latest]${NC}"
+                else
+                    echo -e "  ${GREEN}${COUNT})${NC} ${BASENAME}  (Updated: ${DATE})"
+                fi
+                ((COUNT++))
+            done
+
+            echo -e "  ${GREEN}0)${NC} Cancel"
+            read -p "Select Log [1-$((COUNT-1))]: " PG_CHOICE
+
+            if [[ "$PG_CHOICE" =~ ^[0-9]+$ ]] && [ "$PG_CHOICE" -gt 0 ] && [ "$PG_CHOICE" -lt "$COUNT" ]; then
+                TARGET_LOG="${LOG_PATHS[$PG_CHOICE]}"
+            else
+                echo "Cancelled or Invalid."; exit 0
+            fi
+            ;;
         *) echo "Invalid choice."; exit 1 ;;
     esac
 
@@ -68,33 +116,24 @@ view_remote_log_gui() {
         # === OPTION A: GLOGG (GUI) ===
         echo -e "${YELLOW}Configuring X11 & Checking glogg on remote...${NC}"
 
-        # SELF-HEALING X11 SCRIPT
         ssh "${REMOTE_USER}@${TARGET_IP}" "
-            # A. Fix X11 Auth (Fixes 'request failed on channel 0')
+            # A. Fix X11 Auth
             if ! rpm -q xorg-x11-xauth &> /dev/null; then
-                echo '[Remote] Installing xauth (Required for X11)...'
                 if command -v dnf &> /dev/null; then dnf install -y xorg-x11-xauth; else yum install -y xorg-x11-xauth; fi
             fi
-
             # B. Install glogg
             if ! command -v glogg &> /dev/null; then
-                echo '[Remote] glogg not found. Installing...'
                 if ! rpm -q epel-release &> /dev/null; then
                     if command -v dnf &> /dev/null; then dnf install -y epel-release; else yum install -y epel-release; fi
                 fi
                 if command -v dnf &> /dev/null; then dnf install -y glogg; else yum install -y glogg; fi
             fi
-
-            # C. Ensure SSHD Config allows X11
-            # If X11Forwarding is set to no, change it to yes and restart sshd
+            # C. Ensure SSHD Config
             if grep -q '^X11Forwarding no' /etc/ssh/sshd_config; then
-                echo '[Remote] Enabling X11Forwarding in sshd_config...'
                 sed -i 's/^X11Forwarding no/X11Forwarding yes/' /etc/ssh/sshd_config
                 systemctl restart sshd
             fi
         "
-
-        # Launch with X11 Forwarding (-X) and Redirect Stderr to suppress 'xauth' noise
         log_step "VIEWLOG" "Opening with glogg (X11)..."
         ssh -X "${REMOTE_USER}@${TARGET_IP}" "glogg '${TARGET_LOG}'" 2>/dev/null
 
@@ -110,9 +149,7 @@ view_remote_log_gui() {
                 if command -v dnf &> /dev/null; then sudo dnf install -y lnav; else sudo yum install -y lnav; fi
             fi
         "
-        # Launch with Pseudo-Terminal (-t)
         log_step "VIEWLOG" "Opening with lnav..."
         ssh -t "${REMOTE_USER}@${TARGET_IP}" "lnav '${TARGET_LOG}'"
     fi
 }
-
