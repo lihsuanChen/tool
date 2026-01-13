@@ -5,25 +5,19 @@ source "$SCRIPT_DIR/m1_lib_ssh.sh"
 LOCAL_CHANGESETS="./src/files/opt/raritan/liquibase/changesets"
 REMOTE_DB_DEST="/var/oculan/raritan/liquibase/changesets"
 
+# Guard Clause: Run via tool_main.sh
+: "${TARGET_IP:?ERROR: This script must be run via the 't' dispatcher.}"
+
 if [ ! -d "$LOCAL_CHANGESETS" ]; then
     error_exit "Directory '$LOCAL_CHANGESETS' not found.\nEnsure you are in the root of 'dctrack_database'."
 fi
 
-# ================= NORMALIZE VERSION =================
-# Logic: Database folders (dctrack935) do NOT use dots.
-# We remove any dots from the user input (9.3.5 -> 935).
-NORMALIZED_VERSION=""
-if [ -n "$TARGET_VERSION" ]; then
-    # Bash substitution: replace all '.' with empty string
-    NORMALIZED_VERSION="${TARGET_VERSION//./}"
-fi
-# =====================================================
-
 # 0. SAFETY CHECK
 echo -e "\n${RED}!!! WARNING: DATABASE MIGRATION !!!${NC}"
 echo -e "Target Server:  ${YELLOW}${TARGET_IP}${NC}"
-if [ -n "$NORMALIZED_VERSION" ]; then
-    echo -e "Target Version: ${YELLOW}dctrack${NORMALIZED_VERSION}${NC} (Input: $TARGET_VERSION)"
+
+if [ -n "$VERSION_NO_DOTS" ]; then
+    echo -e "Target Version: ${YELLOW}dctrack${VERSION_NO_DOTS}${NC}"
 else
     echo -e "Target Version: ${YELLOW}ALL CHANGESETS${NC}"
 fi
@@ -39,9 +33,9 @@ fi
 log_step "RSYNC" "Syncing Migration Files..."
 RSYNC_OPTS="-avc -e ssh"
 
-if [ -n "$NORMALIZED_VERSION" ]; then
+if [ -n "$VERSION_NO_DOTS" ]; then
     # Case A: Specific Version
-    TARGET_FOLDER="dctrack${NORMALIZED_VERSION}"
+    TARGET_FOLDER="dctrack${VERSION_NO_DOTS}"
     LOCAL_SRC="${LOCAL_CHANGESETS}/${TARGET_FOLDER}"
 
     if [ ! -d "$LOCAL_SRC" ]; then

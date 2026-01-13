@@ -1,0 +1,20 @@
+# ============================================
+#  USER CONFIGURATION FOR 't' TOOL SUITE
+# ============================================
+
+# Network Defaults
+# If you type 't ssh 105', it becomes BASE_IP.DEFAULT_SUBNET.105
+BASE_IP="192.168"
+DEFAULT_SUBNET="78"
+
+# User Management
+REMOTE_USER="root"
+BRIDGE_USER="sunbird"
+
+# Paths
+# Adjust these if you move your scripts folder
+CMD_LIBRARY="$HOME/scripts/m3_my_commands.txt"
+AUTH_FILE="$HOME/.sunbird_auth"
+
+# Preferences
+DEFAULT_SEARCH_LIMIT="8"

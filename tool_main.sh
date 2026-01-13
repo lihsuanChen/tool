@@ -1,21 +1,42 @@
 #!/bin/bash
 
-# =================CONFIGURATION =================
-export REMOTE_USER="root"
-export BRIDGE_USER="sunbird"
-export AUTH_FILE="$HOME/.sunbird_auth"
-export CMD_LIBRARY="$HOME/scripts/m3_my_commands.txt"
-export BASE_IP="192.168"
-export DEFAULT_SUBNET="78"
-export LOCAL_DNF_SCRIPT="$HOME/projects/test_automation/dnfupdate.sh"
-
-# Set your permanent default limit for search results here
-export DEFAULT_SEARCH_LIMIT="8"
-# ================================================
-
+# ================= 1. INITIALIZATION =================
+# Calculate the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# ================= LOAD MODULES =================
+# ================= 2. DEFAULT CONFIGURATION =================
+# These values are used if .t_config is missing.
+# ------------------------------------------------------------
+REMOTE_USER="root"
+BRIDGE_USER="sunbird"
+AUTH_FILE="$HOME/.sunbird_auth"
+CMD_LIBRARY="$HOME/scripts/m3_my_commands.txt"
+BASE_IP="192.168"
+DEFAULT_SUBNET="78"
+LOCAL_DNF_SCRIPT="$HOME/projects/test_automation/dnfupdate.sh"
+DEFAULT_SEARCH_LIMIT="8"
+
+# ================= 3. USER OVERRIDES =================
+# Load external configuration from the same directory as the script
+# ------------------------------------------------------------
+USER_CONFIG="$SCRIPT_DIR/.t_config"
+
+if [ -f "$USER_CONFIG" ]; then
+    # We source this file, so it can overwrite the variables above
+    source "$USER_CONFIG"
+fi
+
+# ================= 4. EXPORT GLOBAL STATE =================
+export REMOTE_USER
+export BRIDGE_USER
+export AUTH_FILE
+export CMD_LIBRARY
+export BASE_IP
+export DEFAULT_SUBNET
+export LOCAL_DNF_SCRIPT
+export DEFAULT_SEARCH_LIMIT
+
+# ================= 5. LOAD MODULES =================
 source "$SCRIPT_DIR/m1_lib_ssh.sh"
 source "$SCRIPT_DIR/m3_tool_cheatsheet.sh"
 source "$SCRIPT_DIR/tool_help.sh"
@@ -41,7 +62,6 @@ while [[ $# -gt 0 ]]; do
       esac
   else
       case $1 in
-        # UPDATED: Renamed setviewer -> setlogviewer
         deploy|dnfupdate|ssh|setpass|find|readme|rootsetup|pgtrust|tomcatsetup|initvm|viewlog|logview|log|setlogviewer) MODE="$1"; shift ;;
         -f|-v|--version) export TARGET_VERSION="$2"; shift 2 ;;
         -l|--limit) export SEARCH_LIMIT="$2"; shift 2 ;;
@@ -53,7 +73,40 @@ done
 
 if [ -z "$MODE" ]; then echo -e "${RED}Error: Missing arguments.${NC}"; print_help; exit 1; fi
 
-# CALCULATE IP
+# ================= NORMALIZE VERSION =================
+# Standardize version formats so sub-scripts don't have to parse them.
+# -----------------------------------------------------
+export VERSION_WITH_DOTS=""
+export VERSION_NO_DOTS=""
+
+if [ -n "$TARGET_VERSION" ]; then
+    # 1. Sanitize: Remove 'v' prefix if present (e.g. v9.3.5 -> 9.3.5)
+    CLEAN_VER="${TARGET_VERSION#v}"
+
+    if [[ "$CLEAN_VER" == *"."* ]]; then
+        # Input has dots (e.g. 9.3.5)
+        VERSION_WITH_DOTS="$CLEAN_VER"
+        VERSION_NO_DOTS="${CLEAN_VER//./}"
+    else
+        # Input has NO dots (e.g. 935)
+        VERSION_NO_DOTS="$CLEAN_VER"
+
+        # Smart Infer: 3 digits (935) -> 9.3.5
+        if [[ "$CLEAN_VER" =~ ^[0-9]{3}$ ]]; then
+            VERSION_WITH_DOTS="${CLEAN_VER:0:1}.${CLEAN_VER:1:1}.${CLEAN_VER:2:1}"
+        else
+            # Fallback for non-standard lengths (e.g. 1001)
+            VERSION_WITH_DOTS="$CLEAN_VER"
+        fi
+    fi
+    export VERSION_WITH_DOTS
+    export VERSION_NO_DOTS
+
+    # Debug Log
+    # echo "Version Context: [${VERSION_WITH_DOTS}] / [${VERSION_NO_DOTS}]"
+fi
+
+# ================= CALCULATE IP =================
 TARGET_IP=""
 if [ -n "$IP_SUFFIX" ] && [[ "$IP_SUFFIX" =~ ^[0-9.]+$ ]]; then
     if [[ "$IP_SUFFIX" == *.* ]]; then TARGET_IP="${BASE_IP}.${IP_SUFFIX}"; else TARGET_IP="${BASE_IP}.${DEFAULT_SUBNET}.${IP_SUFFIX}"; fi
@@ -113,7 +166,6 @@ case "$MODE" in
         view_remote_log_gui "${REMOTE_USER}" "${TARGET_IP}"
         exit 0
         ;;
-    # UPDATED: RENAMED COMMAND
     setlogviewer)
         switch_log_viewer
         exit 0
