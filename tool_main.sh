@@ -45,6 +45,7 @@ source "$SCRIPT_DIR/tool_readme.sh"
 source "$SCRIPT_DIR/m4_tool_tomcat.sh"
 source "$SCRIPT_DIR/m4_tool_init_vm.sh"
 source "$SCRIPT_DIR/tool_viewlog.sh"
+source "$SCRIPT_DIR/m4_tool_edit.sh"
 # ================================================
 
 # ================= ARGUMENT PARSING =================
@@ -62,7 +63,7 @@ while [[ $# -gt 0 ]]; do
       esac
   else
       case $1 in
-        deploy|dnfupdate|ssh|setpass|find|readme|rootsetup|pgtrust|tomcatsetup|initvm|viewlog|logview|log|setlogviewer) MODE="$1"; shift ;;
+        deploy|dnfupdate|ssh|setpass|find|readme|rootsetup|pgtrust|tomcatsetup|initvm|viewlog|logview|log|setlogviewer|edit) MODE="$1"; shift ;;
         -f|-v|--version) export TARGET_VERSION="$2"; shift 2 ;;
         -l|--limit) export SEARCH_LIMIT="$2"; shift 2 ;;
         -h|--help|--h|-help) print_help; exit 0 ;;
@@ -101,17 +102,37 @@ if [ -n "$TARGET_VERSION" ]; then
     fi
     export VERSION_WITH_DOTS
     export VERSION_NO_DOTS
-
-    # Debug Log
-    # echo "Version Context: [${VERSION_WITH_DOTS}] / [${VERSION_NO_DOTS}]"
 fi
 
-# ================= CALCULATE IP =================
+# ================= CALCULATE IP & ARGS =================
+# Split IP_SUFFIX into the IP component and the rest (Extra Args)
+# This allows commands like: 't edit 105 /etc/hosts'
+# -------------------------------------------------------
 TARGET_IP=""
-if [ -n "$IP_SUFFIX" ] && [[ "$IP_SUFFIX" =~ ^[0-9.]+$ ]]; then
-    if [[ "$IP_SUFFIX" == *.* ]]; then TARGET_IP="${BASE_IP}.${IP_SUFFIX}"; else TARGET_IP="${BASE_IP}.${DEFAULT_SUBNET}.${IP_SUFFIX}"; fi
-    export TARGET_IP
-    echo -e "Target defined as: ${YELLOW}${TARGET_IP}${NC}"
+EXTRA_ARGS=""
+
+if [ -n "$IP_SUFFIX" ]; then
+    # Extract the first word as the potential IP/ID
+    read -r POTENTIAL_ID REMAINDER <<< "$IP_SUFFIX"
+
+    if [[ "$POTENTIAL_ID" =~ ^[0-9.]+$ ]]; then
+        # It is a valid IP syntax
+        if [[ "$POTENTIAL_ID" == *.* ]]; then
+            TARGET_IP="${BASE_IP}.${POTENTIAL_ID}"
+        else
+            TARGET_IP="${BASE_IP}.${DEFAULT_SUBNET}.${POTENTIAL_ID}"
+        fi
+
+        export TARGET_IP
+        # The rest of the string becomes arguments for the command (e.g. filename)
+        EXTRA_ARGS="$REMAINDER"
+
+        echo -e "Target defined as: ${YELLOW}${TARGET_IP}${NC}"
+    else
+        # Fallback: The user might have typed 't find some query' (no IP)
+        # So we keep the whole string as args for commands that don't need IPs
+        EXTRA_ARGS="$IP_SUFFIX"
+    fi
 fi
 
 case "$MODE" in
@@ -170,7 +191,18 @@ case "$MODE" in
         switch_log_viewer
         exit 0
         ;;
+    edit)
+        if [ -z "$TARGET_IP" ]; then error_exit "IP Required for edit."; fi
+        check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
+
+        FINAL_PATH="${EXTRA_ARGS}"
+        if [ -z "$FINAL_PATH" ]; then FINAL_PATH="$TARGET_VERSION"; fi
+
+        edit_remote_file "${REMOTE_USER}" "${TARGET_IP}" "${FINAL_PATH}"
+        exit 0
+        ;;
     find)
+        # Pass the full argument string, not split by IP
         cmd_search "$IP_SUFFIX"
         exit 0
         ;;

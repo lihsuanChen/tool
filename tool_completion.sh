@@ -6,7 +6,7 @@ _t_completion() {
     cur="${COMP_WORDS[COMP_CWORD]}"
 
     # List of all subcommands supported by 't'
-    commands="deploy ssh find dnfupdate setpass rootsetup pgtrust tomcatsetup initvm viewlog logview log setlogviewer readme"
+    commands="deploy ssh find dnfupdate setpass rootsetup pgtrust tomcatsetup initvm viewlog logview log setlogviewer readme edit"
 
     if [ $COMP_CWORD -eq 1 ]; then
         COMPREPLY=( $(compgen -W "$commands" -- "$cur") )
