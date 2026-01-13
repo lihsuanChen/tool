@@ -120,10 +120,7 @@ edit_remote_file() {
     # ================= 3. EDITOR LOGIC =================
     log_step "EDIT" "Target: ${YELLOW}${FILE_PATH}${NC} on ${TARGET_IP}"
 
-    local HAS_CODE=false
     local HAS_IDEA=false
-
-    if command -v code &> /dev/null; then HAS_CODE=true; fi
     if [ -f "$IDEA_PATH" ]; then HAS_IDEA=true; fi
 
     echo -e "${YELLOW}Select Editor:${NC}"
@@ -135,7 +132,6 @@ edit_remote_file() {
     fi
     echo -e "  ${GREEN}2)${NC} Vim (Terminal)"
     echo -e "  ${GREEN}3)${NC} Nano (Terminal)"
-    echo -e "  ${GREEN}4)${NC} VS Code (Windows GUI)"
 
     read -p "Select option [1]: " EDITOR_CHOICE
     EDITOR_CHOICE=${EDITOR_CHOICE:-1}
@@ -190,15 +186,6 @@ edit_remote_file() {
             ;;
         2) ssh -t "${REMOTE_USER}@${TARGET_IP}" "vim ${FILE_PATH}" ;;
         3) ssh -t "${REMOTE_USER}@${TARGET_IP}" "nano ${FILE_PATH}" ;;
-        4)
-            if [ "$HAS_CODE" = true ]; then
-                echo -e "Launching VS Code Remote..."
-                code --remote "ssh-remote+${REMOTE_USER}@${TARGET_IP}" "${FILE_PATH}"
-            else
-                echo -e "${RED}Error: 'code' command not found.${NC}"
-                exit 1
-            fi
-            ;;
         *) echo "Invalid choice." ;;
     esac
 }

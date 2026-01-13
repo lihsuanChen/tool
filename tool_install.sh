@@ -38,6 +38,7 @@ echo "---------------------------------------------------"
 add_alias "t" "$MAIN_TOOL_PATH"
 add_alias "td" "$MAIN_TOOL_PATH deploy"
 add_alias "tf" "$MAIN_TOOL_PATH find"
+add_alias "te" "$MAIN_TOOL_PATH edit"
 
 # ================= COMPLETION SETUP =================
 echo ""

@@ -15,7 +15,7 @@ print_help() {
     echo -e "  ${GREEN}readme${NC}      Show Documentation"
     echo -e ""
     echo -e "${YELLOW}DEVELOPMENT:${NC}"
-    echo -e "  ${GREEN}edit${NC}        Remote File Editor (IntelliJ/Vim/Nano)"
+    echo -e "  ${GREEN}edit${NC}        Remote File Editor (Alias: ${GREEN}te${NC})"
     echo -e "                 ${BLUE}Supports SSHFS mounting for IDEs${NC}"
     echo -e ""
     echo -e "${YELLOW}ADMIN & INIT:${NC}"

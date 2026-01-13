@@ -22,7 +22,7 @@ A modular shell script suite for automating Java WAR deployments, Node.js Client
     * `tool_readme.sh`, `tool_viewlog.sh`, `tool_edit.sh`
 
 2.  **Configure Aliases:**
-    Run the installer to register `t`, `td`, and `tf` in your `.bashrc`:
+    Run the installer to register `t`, `td`, `tf`, and `te` in your `.bashrc`:
     ```bash
     source ~/scripts/tool_install.sh
     ```
@@ -63,13 +63,12 @@ A modular shell script suite for automating Java WAR deployments, Node.js Client
 
 ### 🖥️ Remote Development
 
-#### `t edit <IP> [path]`
+#### `t edit <IP> [path]` (Alias: `te`)
 * **Function:** Remote File Editor.
 * **Detail:** Opens a remote file for editing. If no path is provided, it shows a **History Menu** of recently edited files.
 * **Supported Editors:**
     1. **IntelliJ Ultimate:** Mounts the remote filesystem via `sshfs` to `/tmp` and opens the file in your local IDE instance.
     2. **Vim / Nano:** Opens directly in the terminal via SSH.
-    3. **VS Code:** Launches `code --remote`.
 
 ---
 
