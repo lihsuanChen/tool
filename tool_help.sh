@@ -12,7 +12,7 @@ print_help() {
     echo -e "  ${GREEN}find${NC}        Search Cheatsheet (Alias: ${GREEN}tf${NC})"
     echo -e "  ${GREEN}ssh${NC}         Auto-Root Login / Key Install"
     echo -e "  ${GREEN}viewlog${NC}     Remote Log Viewer (Alias: ${GREEN}log${NC})"
-    echo -e "  ${GREEN}readme${NC}      Show Documentation"
+    echo -e "  ${GREEN}readme${NC}      Show Docs (Internal or Local Path)"
     echo -e ""
     echo -e "${YELLOW}DEVELOPMENT:${NC}"
     echo -e "  ${GREEN}edit${NC}        Remote File Editor (Alias: ${GREEN}te${NC})"

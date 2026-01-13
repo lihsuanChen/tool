@@ -115,7 +115,9 @@ if [ -n "$IP_SUFFIX" ]; then
     # Extract the first word as the potential IP/ID
     read -r POTENTIAL_ID REMAINDER <<< "$IP_SUFFIX"
 
-    if [[ "$POTENTIAL_ID" =~ ^[0-9.]+$ ]]; then
+    # [FIX] Logic: Must contain only numbers/dots AND have at least one digit.
+    # This prevents '.' from being treated as an IP.
+    if [[ "$POTENTIAL_ID" =~ ^[0-9.]+$ ]] && [[ "$POTENTIAL_ID" =~ [0-9] ]]; then
         # It is a valid IP syntax
         if [[ "$POTENTIAL_ID" == *.* ]]; then
             TARGET_IP="${BASE_IP}.${POTENTIAL_ID}"
@@ -124,12 +126,12 @@ if [ -n "$IP_SUFFIX" ]; then
         fi
 
         export TARGET_IP
-        # The rest of the string becomes arguments for the command (e.g. filename)
+        # The rest of the string becomes arguments for the command
         EXTRA_ARGS="$REMAINDER"
 
         echo -e "Target defined as: ${YELLOW}${TARGET_IP}${NC}"
     else
-        # Fallback: The user might have typed 't find some query' (no IP)
+        # Fallback: The user typed 't readme .' or 't find query' (no IP)
         # So we keep the whole string as args for commands that don't need IPs
         EXTRA_ARGS="$IP_SUFFIX"
     fi
@@ -207,7 +209,8 @@ case "$MODE" in
         exit 0
         ;;
     readme)
-        show_readme "$SCRIPT_DIR"
+        # [FIX] Pass the unsplit IP_SUFFIX (e.g., ".") to the readme function
+        show_readme "$SCRIPT_DIR" "$IP_SUFFIX"
         exit 0
         ;;
     *) echo -e "${RED}Error: Unknown command '$MODE'${NC}"; exit 1 ;;

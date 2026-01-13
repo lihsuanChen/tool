@@ -59,6 +59,13 @@ A modular shell script suite for automating Java WAR deployments, Node.js Client
 * **Function:** Interactive Log Viewer.
 * **Detail:** Fetches a dynamic list of remote PostgreSQL logs and offers a menu to open them in `lnav` or `glogg`.
 
+#### `t readme [path]`
+* **Function:** Documentation Viewer.
+* **Detail:** Renders Markdown files using `glow` or `bat`.
+    * **No Argument:** Displays this tool's internal documentation.
+    * **Directory (`.` or path):** Intelligent search for `README.md`, `README.txt`, etc., in the target folder.
+    * **File:** Renders the specific file provided.
+
 ---
 
 ### 🖥️ Remote Development

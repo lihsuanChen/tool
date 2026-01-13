@@ -1,68 +1,48 @@
 #!/bin/bash
 
-# Function to handle README display and viewer installation
 show_readme() {
-    local BASE_DIR=$1
-    local README_PATH="$BASE_DIR/README.md"
+    local TOOL_DIR=$1
+    local USER_TARGET=$2
+    local FINAL_PATH=""
 
-    if [ ! -f "$README_PATH" ]; then
-        echo -e "${RED}Error: README.md not found at $README_PATH${NC}"
-        exit 1
-    fi
+    # 1. RESOLVE TARGET
+    if [ -z "$USER_TARGET" ]; then
+        # Default: Tool's own README
+        FINAL_PATH="$TOOL_DIR/README.md"
+    else
+        if [ -f "$USER_TARGET" ]; then
+            # User pointed to a specific file
+            FINAL_PATH="$USER_TARGET"
+        elif [ -d "$USER_TARGET" ]; then
+            # User pointed to a directory (e.g. ".")
+            # Find any variation of README starting with r/R and containing e/E...
+            # This is safer than -iname on some older 'find' versions
+            local FOUND=$(find "$USER_TARGET" -maxdepth 1 -name "[rR][eE][aA][dD][mM][eE]*" | head -n 1)
 
-    # ================= 1. AUTO-INSTALL LOGIC =================
-    # If 'glow' is missing, offer to install it
-    if ! command -v glow &> /dev/null; then
-        echo -e "${YELLOW}Better Reader 'glow' is missing.${NC}"
-        read -p "Auto-install 'glow' now? (y/N): " INSTALL_CONFIRM
-
-        if [[ "$INSTALL_CONFIRM" =~ ^[Yy]$ ]]; then
-            echo -e "${BLUE}Installing Glow... (Sudo password may be required)${NC}"
-
-            if command -v apt &> /dev/null; then
-                # Debian/Ubuntu Installation
-                sudo mkdir -p /etc/apt/keyrings
-                curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/charm.gpg
-                echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | sudo tee /etc/apt/sources.list.d/charm.list
-                sudo apt update && sudo apt install -y glow
-
-            elif command -v dnf &> /dev/null; then
-                # RHEL/Fedora Installation
-                echo '[charm]
-name=Charm
-baseurl=https://repo.charm.sh/yum/
-enabled=1
-gpgcheck=1
-gpgkey=https://repo.charm.sh/yum/gpg.key' | sudo tee /etc/yum.repos.d/charm.repo
-                sudo dnf install -y glow
-
+            if [ -n "$FOUND" ]; then
+                FINAL_PATH="$FOUND"
             else
-                echo -e "${RED}Could not detect apt or dnf. Skipping install.${NC}"
+                echo -e "\033[1;33mNo README found in: ${USER_TARGET}\033[0m"
+                return 1
             fi
-            echo ""
+        else
+            echo -e "\033[0;31mError: Path not found: $USER_TARGET\033[0m"
+            return 1
         fi
     fi
 
-    # ================= 2. VIEWING LOGIC =================
+    # 2. DISPLAY
+    echo -e "\033[0;34m==================================================\033[0m"
+    echo -e "  READING: \033[1;33m$FINAL_PATH\033[0m"
+    echo -e "\033[0;34m==================================================\033[0m"
+
     if command -v glow &> /dev/null; then
-        # BEST: Render Markdown like a webpage
-        glow -p "$README_PATH"
-
+        glow -p "$FINAL_PATH"
     elif command -v bat &> /dev/null; then
-        # GOOD: Syntax Highlighting
-        bat --style=plain --language=md "$README_PATH"
-
+        bat --style=plain --language=md "$FINAL_PATH"
     elif command -v batcat &> /dev/null; then
-        # GOOD: Ubuntu sometimes calls it 'batcat'
-        batcat --style=plain --language=md "$README_PATH"
-
+        batcat --style=plain --language=md "$FINAL_PATH"
     else
-        # FALLBACK: Standard text
-        echo -e "${BLUE}==================================================${NC}"
-        echo -e "${YELLOW}  DISPLAYING README: $README_PATH${NC}"
-        echo -e "${BLUE}==================================================${NC}"
-        echo -e "${YELLOW}(Tip: Install 'glow' or 'bat' for a better reading experience)${NC}"
-        echo ""
-        cat "$README_PATH"
+        cat "$FINAL_PATH"
     fi
 }
