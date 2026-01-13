@@ -2,23 +2,24 @@
 
 A modular shell script suite for automating Java WAR deployments, Node.js Client builds, Database migrations, SSH key management, and maintaining a personal command library.
 
-## 🚀 Features at a Glance
+## 🌟 Features at a Glance
 
 * **Context-Aware Deployment:** Detects if you are in a Server, Client, or Database repo and runs the correct build/deploy logic automatically.
 * **Self-Healing SSH:** Automatically attempts to fix "Host Identification Changed" errors and installs missing keys.
 * **Knowledge Base:** A built-in "Cheat Sheet" engine with fuzzy search (`tf`).
+* **Remote Editing:** Edit remote files directly in your local IntelliJ (via SSHFS) or terminal editors.
 * **VM Provisioning:** One-command setup (`initvm`) to prepare a fresh VM for development (Root, Postgres, Tomcat).
 
 ---
 
-## 📂 Installation
+## 🚀 Installation
 
 1.  **File Setup:** Place all scripts in `~/scripts/`:
     * `tool_main.sh`, `tool_help.sh`, `tool_install.sh`
     * `m1_lib_ssh.sh`, `m2_process_dnfupdate.sh`, `m3_tool_cheatsheet.sh`
     * `m4_tool_init_vm.sh`, `m4_tool_postgres.sh`, `m4_tool_tomcat.sh`
     * `m5_process_deploy.sh`, `m5_deploy_server.sh`, `m5_deploy_client.sh`, `m5_deploy_database.sh`
-    * `tool_readme.sh`, `tool_viewlog.sh`
+    * `tool_readme.sh`, `tool_viewlog.sh`, `tool_edit.sh`
 
 2.  **Configure Aliases:**
     Run the installer to register `t`, `td`, and `tf` in your `.bashrc`:
@@ -30,7 +31,7 @@ A modular shell script suite for automating Java WAR deployments, Node.js Client
 
 ## 📖 Command Reference
 
-### 🟢 Core Commands
+### ⚡ Core Commands
 
 #### `t deploy <IP>` (Alias: `td`)
 * **Function:** Smart Deployment Router.
@@ -60,7 +61,19 @@ A modular shell script suite for automating Java WAR deployments, Node.js Client
 
 ---
 
-### 🟠 Admin & Init
+### 🖥️ Remote Development
+
+#### `t edit <IP> [path]`
+* **Function:** Remote File Editor.
+* **Detail:** Opens a remote file for editing. If no path is provided, it shows a **History Menu** of recently edited files.
+* **Supported Editors:**
+    1. **IntelliJ Ultimate:** Mounts the remote filesystem via `sshfs` to `/tmp` and opens the file in your local IDE instance.
+    2. **Vim / Nano:** Opens directly in the terminal via SSH.
+    3. **VS Code:** Launches `code --remote`.
+
+---
+
+### 🛠️ Admin & Init
 
 #### `t initvm <IP>`
 * **Function:** Master provisioning command.
@@ -84,7 +97,7 @@ A modular shell script suite for automating Java WAR deployments, Node.js Client
 
 ---
 
-### 🔵 Configuration
+### ⚙️ Configuration
 
 #### `t setpass [IP]`
 * **Function:** Updates Bridge Password.

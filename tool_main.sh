@@ -45,7 +45,7 @@ source "$SCRIPT_DIR/tool_readme.sh"
 source "$SCRIPT_DIR/m4_tool_tomcat.sh"
 source "$SCRIPT_DIR/m4_tool_init_vm.sh"
 source "$SCRIPT_DIR/tool_viewlog.sh"
-source "$SCRIPT_DIR/m4_tool_edit.sh"
+source "$SCRIPT_DIR/tool_edit.sh"
 # ================================================
 
 # ================= ARGUMENT PARSING =================
