@@ -8,11 +8,10 @@ edit_remote_file() {
 
     # === CONFIGURATION ===
     local TAG_MISSING=" [NOT FOUND]"
-    # Define GRAY manually as it might not be in tool_main
     local GRAY='\033[90m'
 
-    # Define IntelliJ Path
-    local IDEA_PATH="$HOME/.local/share/JetBrains/Toolbox/scripts/idea"
+    # Load IDE Path from Config (Fallback to previous default if unset)
+    local IDEA_PATH="${LOCAL_IDE_PATH:-$HOME/.local/share/JetBrains/Toolbox/scripts/idea}"
 
     # ================= 1. HISTORY & INTERACTIVE SELECTION =================
     if [ -z "$FILE_PATH" ]; then
@@ -96,11 +95,8 @@ edit_remote_file() {
         read -p "Do you want to create a NEW file? (y/N): " CREATE_CONFIRM
 
         if [[ ! "$CREATE_CONFIRM" =~ ^[Yy]$ ]]; then
-            # === FAILURE LOGIC ===
             clean_history_entry "$FILE_PATH"
-            # Append to BOTTOM with [NOT FOUND] tag
             echo "${FILE_PATH}${TAG_MISSING}" >> "$HISTORY_FILE"
-
             echo -e "${YELLOW}Marked as missing and moved to bottom of list.${NC}"
             exit 1
         fi
@@ -128,7 +124,7 @@ edit_remote_file() {
     if [ "$HAS_IDEA" = true ]; then
         echo -e "  ${GREEN}1)${NC} IntelliJ Ultimate (WSL via SSHFS)"
     else
-        echo -e "  ${BLACK}1) IntelliJ Ultimate (Not detected)${NC}"
+        echo -e "  ${BLACK}1) IntelliJ Ultimate (Not detected at configured path)${NC}"
     fi
     echo -e "  ${GREEN}2)${NC} Vim (Terminal)"
     echo -e "  ${GREEN}3)${NC} Nano (Terminal)"
@@ -180,7 +176,7 @@ edit_remote_file() {
                 echo -e "Unmounting..."
                 fusermount -u "$MNT_DIR" && rmdir "$MNT_DIR"
             else
-                echo -e "${RED}IntelliJ script not found.${NC}"
+                echo -e "${RED}IntelliJ path invalid.${NC} Check LOCAL_IDE_PATH in .t_config."
                 exit 1
             fi
             ;;

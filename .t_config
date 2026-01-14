@@ -2,19 +2,34 @@
 #  USER CONFIGURATION FOR 't' TOOL SUITE
 # ============================================
 
-# Network Defaults
+# --- Network Defaults ---
 # If you type 't ssh 105', it becomes BASE_IP.DEFAULT_SUBNET.105
-BASE_IP="192.168"
-DEFAULT_SUBNET="78"
+export BASE_IP="192.168"
+export DEFAULT_SUBNET="78"
 
-# User Management
-REMOTE_USER="root"
-BRIDGE_USER="sunbird"
+# --- User Management ---
+export REMOTE_USER="root"
+export BRIDGE_USER="sunbird"
+export AUTH_FILE="$HOME/.sunbird_auth"
 
-# Paths
-# Adjust these if you move your scripts folder
-CMD_LIBRARY="$HOME/scripts/m3_my_commands.txt"
-AUTH_FILE="$HOME/.sunbird_auth"
+# --- Local Paths ---
+export CMD_LIBRARY="$HOME/scripts/m3_my_commands.txt"
+# Path to your IntelliJ/IDE CLI launcher (used by 't edit')
+# Adjust this path if you use VS Code ('code') or a different install path
+export LOCAL_IDE_PATH="$HOME/.local/share/JetBrains/Toolbox/scripts/idea"
 
-# Preferences
-DEFAULT_SEARCH_LIMIT="8"
+# --- Remote Deployment Destinations ---
+# Where the Server WAR file goes
+export DEST_SERVER_WAR="/var/lib/tomcat10/webapps"
+# Where the Client (Node.js) build goes
+export DEST_CLIENT_DIST="/opt/raritan/dcTrack/appClient"
+# Where Database Liquibase changesets go
+export DEST_DB_CHANGESETS="/var/oculan/raritan/liquibase/changesets"
+
+# --- Remote Logging Base Paths ---
+export TOMCAT_LOG_BASE="/var/log/tomcat10"
+export OCULAN_LOG_BASE="/var/log/oculan"
+export POSTGRES_LOG_DIR="/var/lib/pgsql/data/log"
+
+# --- Preferences ---
+export DEFAULT_SEARCH_LIMIT="8"

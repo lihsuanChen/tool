@@ -3,9 +3,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/m1_lib_ssh.sh"
 
 LOCAL_CHANGESETS="./src/files/opt/raritan/liquibase/changesets"
-REMOTE_DB_DEST="/var/oculan/raritan/liquibase/changesets"
+# Load Destination from Config (with fallback)
+REMOTE_DB_DEST="${DEST_DB_CHANGESETS:-/var/oculan/raritan/liquibase/changesets}"
 
-# Guard Clause: Run via tool_main.sh
+# Guard Clause
 : "${TARGET_IP:?ERROR: This script must be run via the 't' dispatcher.}"
 
 if [ ! -d "$LOCAL_CHANGESETS" ]; then
@@ -15,6 +16,7 @@ fi
 # 0. SAFETY CHECK
 echo -e "\n${RED}!!! WARNING: DATABASE MIGRATION !!!${NC}"
 echo -e "Target Server:  ${YELLOW}${TARGET_IP}${NC}"
+echo -e "Remote Path:    ${YELLOW}${REMOTE_DB_DEST}${NC}"
 
 if [ -n "$VERSION_NO_DOTS" ]; then
     echo -e "Target Version: ${YELLOW}dctrack${VERSION_NO_DOTS}${NC}"

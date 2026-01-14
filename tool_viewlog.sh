@@ -33,6 +33,11 @@ view_remote_log_gui() {
     local REMOTE_USER=$1
     local TARGET_IP=$2
 
+    # Load Config Variables (with fallbacks)
+    local T_LOG="${TOMCAT_LOG_BASE:-/var/log/tomcat10}"
+    local O_LOG="${OCULAN_LOG_BASE:-/var/log/oculan}"
+    local PG_LOG="${POSTGRES_LOG_DIR:-/var/lib/pgsql/data/log}"
+
     # DETERMINE VIEWER
     local USE_VIEWER="lnav" # Default
     if [ -f "$VIEWER_CONFIG" ]; then
@@ -44,15 +49,15 @@ view_remote_log_gui() {
     # 1. MAIN MENU
     echo -e "${YELLOW}Select a log file to open:${NC}"
     echo -e "  ${GREEN}1)${NC}  PostgreSQL Logs (Dynamic List)"
-    echo -e "  ${GREEN}2)${NC}  /var/log/tomcat10/dcTrackServer.log"
-    echo -e "  ${GREEN}3)${NC}  /var/log/tomcat10/catalina.out"
-    echo -e "  ${GREEN}4)${NC}  /var/log/tomcat10/access_logs.out"
-    echo -e "  ${GREEN}5)${NC}  /var/log/tomcat10/floorMapsService.log"
-    echo -e "  ${GREEN}6)${NC}  /var/log/tomcat10/gc.log"
-    echo -e "  ${GREEN}7)${NC}  /var/log/tomcat10/wfPluginsLog.log"
-    echo -e "  ${GREEN}8)${NC}  /var/log/oculan/backup-restore.log"
-    echo -e "  ${GREEN}9)${NC}  /var/log/oculan/database-init.log"
-    echo -e "  ${GREEN}10)${NC} /var/log/oculan/upgrade.log"
+    echo -e "  ${GREEN}2)${NC}  ${T_LOG}/dcTrackServer.log"
+    echo -e "  ${GREEN}3)${NC}  ${T_LOG}/catalina.out"
+    echo -e "  ${GREEN}4)${NC}  ${T_LOG}/access_logs.out"
+    echo -e "  ${GREEN}5)${NC}  ${T_LOG}/floorMapsService.log"
+    echo -e "  ${GREEN}6)${NC}  ${T_LOG}/gc.log"
+    echo -e "  ${GREEN}7)${NC}  ${T_LOG}/wfPluginsLog.log"
+    echo -e "  ${GREEN}8)${NC}  ${O_LOG}/backup-restore.log"
+    echo -e "  ${GREEN}9)${NC}  ${O_LOG}/database-init.log"
+    echo -e "  ${GREEN}10)${NC} ${O_LOG}/upgrade.log"
     echo -e "  ${GREEN}11)${NC} /var/oculan/activemq/data/activemq.log"
     echo -e "  ${GREEN}12)${NC} Custom Path..."
     echo -e "  ${GREEN}0)${NC}  Cancel"
@@ -65,12 +70,12 @@ view_remote_log_gui() {
         1)
             echo -e "${YELLOW}Fetching PostgreSQL logs list from remote...${NC}"
             # Find logs, print 'Timestamp|Date Time|Path', sort by timestamp desc (newest first)
-            REMOTE_CMD="find /var/lib/pgsql/data/log/ -maxdepth 1 -name 'postgresql-*.log' -printf '%T@|%Ty-%Tm-%Td %TH:%TM|%p\n' 2>/dev/null | sort -nr"
+            REMOTE_CMD="find ${PG_LOG}/ -maxdepth 1 -name 'postgresql-*.log' -printf '%T@|%Ty-%Tm-%Td %TH:%TM|%p\n' 2>/dev/null | sort -nr"
 
             mapfile -t PG_LOGS < <(ssh "${REMOTE_USER}@${TARGET_IP}" "$REMOTE_CMD")
 
             if [ ${#PG_LOGS[@]} -eq 0 ]; then
-                echo -e "${RED}No PostgreSQL logs found in /var/lib/pgsql/data/log/${NC}"
+                echo -e "${RED}No PostgreSQL logs found in ${PG_LOG}/${NC}"
                 return
             fi
 
@@ -103,15 +108,15 @@ view_remote_log_gui() {
             ;;
 
         # === STANDARD LOGS ===
-        2) TARGET_LOG="/var/log/tomcat10/dcTrackServer.log" ;;
-        3) TARGET_LOG="/var/log/tomcat10/catalina.out" ;;
-        4) TARGET_LOG="/var/log/tomcat10/access_logs.out" ;;
-        5) TARGET_LOG="/var/log/tomcat10/floorMapsService.log" ;;
-        6) TARGET_LOG="/var/log/tomcat10/gc.log" ;;
-        7) TARGET_LOG="/var/log/tomcat10/wfPluginsLog.log" ;;
-        8) TARGET_LOG="/var/log/oculan/backup-restore.log" ;;
-        9) TARGET_LOG="/var/log/oculan/database-init.log" ;;
-        10) TARGET_LOG="/var/log/oculan/upgrade.log" ;;
+        2) TARGET_LOG="${T_LOG}/dcTrackServer.log" ;;
+        3) TARGET_LOG="${T_LOG}/catalina.out" ;;
+        4) TARGET_LOG="${T_LOG}/access_logs.out" ;;
+        5) TARGET_LOG="${T_LOG}/floorMapsService.log" ;;
+        6) TARGET_LOG="${T_LOG}/gc.log" ;;
+        7) TARGET_LOG="${T_LOG}/wfPluginsLog.log" ;;
+        8) TARGET_LOG="${O_LOG}/backup-restore.log" ;;
+        9) TARGET_LOG="${O_LOG}/database-init.log" ;;
+        10) TARGET_LOG="${O_LOG}/upgrade.log" ;;
         11) TARGET_LOG="/var/oculan/activemq/data/activemq.log" ;;
         12) read -p "Enter full path: " TARGET_LOG ;;
         0) echo "Cancelled."; exit 0 ;;

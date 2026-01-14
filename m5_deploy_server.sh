@@ -3,15 +3,15 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/m1_lib_ssh.sh"
 
 APP_DIR="dcTrackApp"
-# Hardcoded defaults (Consider moving these to .t_config in the future)
-REMOTE_DEST="/var/lib/tomcat10/webapps"
+# Load Destination from Config (with fallback)
+REMOTE_DEST="${DEST_SERVER_WAR:-/var/lib/tomcat10/webapps}"
 SERVICE_NAME="tomcat10"
 
 # ================= 1. GUARD CLAUSE =================
 : "${TARGET_IP:?ERROR: This script must be run via the 't' dispatcher.}"
 
 # ================= 2. BUILD (Maven) =================
-# Use normalized version for logging, even if Maven handles the actual versioning
+# Use normalized version for logging
 DISPLAY_VER="${VERSION_WITH_DOTS:-LATEST}"
 log_step "BUILD" "Building Server (Version: ${YELLOW}${DISPLAY_VER}${NC})..."
 
@@ -40,10 +40,9 @@ if [ -z "$WAR_FILE" ]; then error_exit "No WAR file found in ./target."; fi
 echo -e "Found Artifact: ${GREEN}${WAR_FILE}${NC}"
 
 # ================= 4. UPLOAD (RSYNC) =================
-log_step "UPLOAD" "Syncing WAR to ${TARGET_IP}..."
+log_step "UPLOAD" "Syncing WAR to ${TARGET_IP}:${REMOTE_DEST}..."
 
-# We use rsync to upload to a temporary staging path first, then move it.
-# This prevents Tomcat from trying to deploy a half-uploaded file if service is running.
+# We use rsync to upload to a temporary staging path first
 rsync -avz -e ssh --progress "${WAR_FILE}" "${REMOTE_USER}@${TARGET_IP}:/tmp/dcTrackApp.war"
 
 if [ $? -ne 0 ]; then error_exit "Upload failed."; fi
@@ -51,12 +50,6 @@ if [ $? -ne 0 ]; then error_exit "Upload failed."; fi
 # ================= 5. DEPLOY & RESTART =================
 log_step "REMOTE" "Deploying & Restarting ${SERVICE_NAME}..."
 
-# Complex remote command:
-# 1. Stop Tomcat
-# 2. Delete old expanded folder (dcTrackApp/) to force fresh extraction
-# 3. Clean Tomcat caches (work/temp) to prevent weird classloader issues
-# 4. Move new WAR into place
-# 5. Start Tomcat
 REMOTE_CMDS="
     echo '[Remote] Stopping Tomcat...';
     systemctl stop ${SERVICE_NAME};
