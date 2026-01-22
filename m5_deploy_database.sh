@@ -1,6 +1,7 @@
 #!/bin/bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/m1_lib_ssh.sh"
+# Inherits m1_lib_ui from tool_main source chain
 
 LOCAL_CHANGESETS="./src/files/opt/raritan/liquibase/changesets"
 # Load Destination from Config (with fallback)
@@ -25,20 +26,10 @@ else
 fi
 echo -e "----------------------------------------"
 
-# === GUM CONFIRMATION ===
-if command -v gum &> /dev/null; then
-    # Default to No (status 1) to be safe
-    if ! gum confirm --default=false --selected.background=196 "EXECUTE MIGRATION ON ${TARGET_IP}?"; then
-        gum style --foreground 212 "Operation Cancelled."
-        exit 0
-    fi
-else
-    # Fallback
-    read -p "Are you sure you want to execute this migration? (y/N): " CONFIRM
-    if [[ ! "$CONFIRM" =~ ^[Yy]$ ]]; then
-        echo -e "${RED}Operation Cancelled by user.${NC}"
-        exit 0
-    fi
+# === GUM CONFIRMATION (REFACTORED) ===
+if ! ui_confirm "EXECUTE MIGRATION ON ${TARGET_IP}?"; then
+    echo -e "${RED}Operation Cancelled.${NC}"
+    exit 0
 fi
 
 # 1. RSYNC FILES

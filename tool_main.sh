@@ -36,6 +36,7 @@ export OCULAN_ROOT OCULAN_LOG_BASE DOCKER_DATA_DEST
 # ================= 5. LOAD MODULES =================
 # Core Libraries
 source "$SCRIPT_DIR/m1_lib_ssh.sh"
+source "$SCRIPT_DIR/m1_lib_ui.sh"  # <--- LOADED UI LIBRARY
 source "$SCRIPT_DIR/tool_help.sh"
 source "$SCRIPT_DIR/m3_tool_cheatsheet.sh"
 

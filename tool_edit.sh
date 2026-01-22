@@ -9,51 +9,31 @@ edit_remote_file() {
     # === CONFIGURATION ===
     local IDEA_PATH="${LOCAL_IDE_PATH:-$HOME/.local/share/JetBrains/Toolbox/scripts/idea}"
 
-    # ================= 1. HISTORY SELECTION (GUM FILTER) =================
+    # ================= 1. HISTORY SELECTION (UI FILTER) =================
     if [ -z "$FILE_PATH" ]; then
-
         # Load History
         local -a HISTORY_ITEMS
         if [ -f "$HISTORY_FILE" ]; then
             mapfile -t HISTORY_ITEMS < <(head -n 20 "$HISTORY_FILE")
         fi
 
-        if command -v gum &> /dev/null; then
-            # --- GUM MODE ---
-            # Add "New File" as the top option
-            local OPTIONS=("+ New File...")
-            OPTIONS+=("${HISTORY_ITEMS[@]}")
+        # Prepend "New File" option
+        local OPTIONS=("+ New File...")
+        OPTIONS+=("${HISTORY_ITEMS[@]}")
 
-            echo -e "${YELLOW}Select file to edit (Type to filter):${NC}"
-            # Pass the array to gum filter
-            SELECTED=$(printf "%s\n" "${OPTIONS[@]}" | gum filter --height 10 --placeholder "Select file...")
+        echo -e "${YELLOW}Select file to edit:${NC}"
 
-            if [[ "$SELECTED" == "+ New File..." ]]; then
-                FILE_PATH=$(gum input --placeholder "/path/to/remote/file.txt")
-            elif [ -n "$SELECTED" ]; then
-                # Strip any status tags if we had them (legacy compatibility)
-                FILE_PATH="${SELECTED% \[*}"
-            else
-                echo "No file selected."
-                exit 0
-            fi
+        # UI: Filter/Search
+        SELECTED=$(printf "%s\n" "${OPTIONS[@]}" | ui_filter "Select or Search file...")
+
+        if [[ "$SELECTED" == "+ New File..." ]]; then
+            FILE_PATH=$(ui_input "/path/to/remote/file.txt")
+        elif [ -n "$SELECTED" ]; then
+            # Strip any status tags if we had them (legacy compatibility)
+            FILE_PATH="${SELECTED% \[*}"
         else
-            # --- LEGACY MODE (Fallback) ---
-            echo -e "${YELLOW}Select a file to edit:${NC}"
-            local COUNT=1
-            for item in "${HISTORY_ITEMS[@]}"; do
-                echo -e "  ${GREEN}${COUNT})${NC} ${item}"
-                ((COUNT++))
-            done
-            echo -e "  ${GREEN}n)${NC} Enter new file path..."
-
-            read -p "Select choice: " SEL_CHOICE
-            if [[ "$SEL_CHOICE" =~ ^[Nn]$ ]]; then
-                read -p "Enter Full File Path: " FILE_PATH
-            elif [[ "$SEL_CHOICE" =~ ^[0-9]+$ ]]; then
-                IDX=$((SEL_CHOICE - 1))
-                FILE_PATH="${HISTORY_ITEMS[$IDX]}"
-            fi
+            echo "No file selected."
+            exit 0
         fi
     fi
 
@@ -75,14 +55,8 @@ edit_remote_file() {
     ssh -q "${REMOTE_USER}@${TARGET_IP}" "test -e \"${FILE_PATH}\""
 
     if [ $? -ne 0 ]; then
-        if command -v gum &> /dev/null; then
-             if ! gum confirm "File '${FILE_PATH}' does not exist. Create it?"; then
-                 exit 1
-             fi
-        else
-             echo -e "${RED}File '${FILE_PATH}' not found.${NC}"
-             read -p "Create new? (y/N): " C
-             if [[ ! "$C" =~ ^[Yy]$ ]]; then exit 1; fi
+        if ! ui_confirm "File '${FILE_PATH}' does not exist. Create it?"; then
+            exit 1
         fi
     fi
 
@@ -101,24 +75,15 @@ edit_remote_file() {
     if [ -f "$IDEA_PATH" ]; then HAS_IDEA=true; fi
 
     local EDIT_TOOL=""
+    local E_OPTS=()
+    if [ "$HAS_IDEA" = true ]; then E_OPTS+=("IntelliJ Ultimate (SSHFS)"); fi
+    E_OPTS+=("Vim (Terminal)" "Nano (Terminal)")
 
-    if command -v gum &> /dev/null; then
-        # Build Options array
-        local E_OPTS=()
-        if [ "$HAS_IDEA" = true ]; then E_OPTS+=("IntelliJ Ultimate (SSHFS)"); fi
-        E_OPTS+=("Vim (Terminal)" "Nano (Terminal)")
+    CHOSEN_TOOL=$(ui_choose "${E_OPTS[@]}")
 
-        CHOSEN_TOOL=$(printf "%s\n" "${E_OPTS[@]}" | gum choose)
-
-        if [[ "$CHOSEN_TOOL" == "IntelliJ"* ]]; then EDIT_TOOL="1"; fi
-        if [[ "$CHOSEN_TOOL" == "Vim"* ]]; then EDIT_TOOL="2"; fi
-        if [[ "$CHOSEN_TOOL" == "Nano"* ]]; then EDIT_TOOL="3"; fi
-    else
-        # Legacy
-        echo -e "  1) IntelliJ"
-        echo -e "  2) Vim"
-        read -p "Select: " EDIT_TOOL
-    fi
+    if [[ "$CHOSEN_TOOL" == "IntelliJ"* ]]; then EDIT_TOOL="1"; fi
+    if [[ "$CHOSEN_TOOL" == "Vim"* ]]; then EDIT_TOOL="2"; fi
+    if [[ "$CHOSEN_TOOL" == "Nano"* ]]; then EDIT_TOOL="3"; fi
 
     case "$EDIT_TOOL" in
         1)
@@ -134,8 +99,8 @@ edit_remote_file() {
             echo -e "${YELLOW}Launching IntelliJ...${NC}"
             "$IDEA_PATH" "${MNT_DIR}${FILE_PATH}" > /dev/null 2>&1 &
 
-            echo -e "${GREEN}Session Active.${NC} Press Enter to Unmount."
-            if command -v gum &> /dev/null; then gum input --placeholder "Press Enter to finish..."; else read -p ""; fi
+            echo -e "${GREEN}Session Active.${NC}"
+            ui_input "Press Enter to unmount and finish..." "false" "Press Enter..." > /dev/null
 
             fusermount -u "$MNT_DIR" && rmdir "$MNT_DIR"
             ;;
