@@ -19,6 +19,51 @@ if [ ! -f "$MAIN_TOOL_PATH" ]; then
     exit 1
 fi
 
+# ================= DEPENDENCY CHECK (GUM) =================
+ensure_gum() {
+    echo "---------------------------------------------------"
+    echo "0. Checking Dependencies"
+    echo "---------------------------------------------------"
+
+    if command -v gum &> /dev/null; then
+        echo -e "  \033[0;32m[OK]\033[0m 'gum' is already installed."
+        return 0
+    fi
+
+    echo -e "  \033[1;33m'gum' not found. Installing...\033[0m"
+
+    # Detect OS via /etc/os-release
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        OS=$ID
+    fi
+
+    if [[ "$OS" == "ubuntu" ]] || [[ "$OS" == "debian" ]]; then
+        echo "  Detected Debian/Ubuntu. Adding Charm repo..."
+        sudo mkdir -p /etc/apt/keyrings
+        curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/charm.gpg
+        echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | sudo tee /etc/apt/sources.list.d/charm.list
+        sudo apt update && sudo apt install -y gum
+
+    elif [[ "$OS" == "rocky" ]] || [[ "$OS" == "centos" ]] || [[ "$OS" == "rhel" ]] || [[ "$OS" == "fedora" ]]; then
+        echo "  Detected RHEL/Rocky. Adding Charm repo..."
+        echo '[charm]
+name=Charm
+baseurl=https://repo.charm.sh/yum/
+enabled=1
+gpgcheck=1
+gpgkey=https://repo.charm.sh/yum/gpg.key' | sudo tee /etc/yum.repos.d/charm.repo
+        sudo yum install -y gum
+    else
+        echo -e "  \033[0;31mERROR: Unsupported OS for auto-install ($OS).\033[0m"
+        echo "  Please install manually: https://github.com/charmbracelet/gum#installation"
+        exit 1
+    fi
+}
+
+# Run the check
+ensure_gum
+
 # ================= ALIAS SETUP =================
 add_alias() {
     local NAME=$1
@@ -32,6 +77,7 @@ add_alias() {
     fi
 }
 
+echo ""
 echo "---------------------------------------------------"
 echo "1. Setting up Custom Automation Tool Aliases"
 echo "---------------------------------------------------"

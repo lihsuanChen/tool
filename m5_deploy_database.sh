@@ -24,11 +24,21 @@ else
     echo -e "Target Version: ${YELLOW}ALL CHANGESETS${NC}"
 fi
 echo -e "----------------------------------------"
-read -p "Are you sure you want to execute this migration? (y/N): " CONFIRM
 
-if [[ ! "$CONFIRM" =~ ^[Yy]$ ]]; then
-    echo -e "${RED}Operation Cancelled by user.${NC}"
-    exit 0
+# === GUM CONFIRMATION ===
+if command -v gum &> /dev/null; then
+    # Default to No (status 1) to be safe
+    if ! gum confirm --default=false --selected.background=196 "EXECUTE MIGRATION ON ${TARGET_IP}?"; then
+        gum style --foreground 212 "Operation Cancelled."
+        exit 0
+    fi
+else
+    # Fallback
+    read -p "Are you sure you want to execute this migration? (y/N): " CONFIRM
+    if [[ ! "$CONFIRM" =~ ^[Yy]$ ]]; then
+        echo -e "${RED}Operation Cancelled by user.${NC}"
+        exit 0
+    fi
 fi
 
 # 1. RSYNC FILES

@@ -14,7 +14,12 @@ log_step() {
 }
 
 error_exit() {
-    echo -e "${RED}ERROR: $1${NC}"
+    # If gum is available, use it for a pretty error
+    if command -v gum &> /dev/null; then
+        gum style --foreground 196 --border double --padding "1 2" "ERROR: $1"
+    else
+        echo -e "${RED}ERROR: $1${NC}"
+    fi
     exit 1
 }
 
@@ -52,33 +57,64 @@ ensure_bridge_password() {
     local AUTH="${AUTH_FILE:-$HOME/.sunbird_auth}"
 
     if [ ! -f "$AUTH" ] || [ "$FORCE_UPDATE" == "true" ]; then
-        echo -e "${YELLOW}Security Setup: Input correct password for '$B_USER'.${NC}"
         ensure_sshpass
 
-        while true; do
-            read -sp "Enter Password for $B_USER: " PASSWORD
-            echo ""
+        # === GUM INTEGRATION START ===
+        if command -v gum &> /dev/null; then
+             echo -e "${YELLOW}Security Setup: Authentication Required for '$B_USER'${NC}"
 
-            # Verification Logic
-            if [ -n "$TEST_IP" ]; then
-                echo -n "Verifying password against $TEST_IP... "
-                # StrictHostKeyChecking=no is vital here to avoid prompt hanging
-                sshpass -p "$PASSWORD" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 "${B_USER}@${TEST_IP}" "exit" 2>/dev/null
+             while true; do
+                # Use gum for masked input
+                PASSWORD=$(gum input --password --placeholder "Enter Password for $B_USER...")
+                echo ""
 
-                if [ $? -eq 0 ]; then
-                    echo -e "${GREEN}VALID.${NC}"
-                    break
-                else
-                    echo -e "${RED}INVALID.${NC}"
-                    echo -e "Password rejected (or Host Unreachable) by ${B_USER}@${TEST_IP}."
-                    read -p "Retry? (y/n): " RETRY
-                    if [[ "$RETRY" =~ ^[Nn]$ ]]; then echo -e "${RED}Aborted.${NC}"; exit 1; fi
+                if [ -z "$PASSWORD" ]; then
+                    gum style --foreground 196 "Password cannot be empty."
+                    continue
                 fi
-            else
-                echo -e "${YELLOW}No IP provided for verification. Saving blindly.${NC}"
-                break
-            fi
-        done
+
+                # Verification Logic
+                if [ -n "$TEST_IP" ]; then
+                    echo -n "Verifying password against $TEST_IP... "
+                    sshpass -p "$PASSWORD" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 "${B_USER}@${TEST_IP}" "exit" 2>/dev/null
+
+                    if [ $? -eq 0 ]; then
+                        echo -e "${GREEN}VALID.${NC}"
+                        break
+                    else
+                        gum style --foreground 196 "INVALID PASSWORD" "Access rejected by ${B_USER}@${TEST_IP}"
+                        gum confirm "Try again?" || exit 1
+                    fi
+                else
+                    echo -e "${YELLOW}No IP provided for verification. Saving blindly.${NC}"
+                    break
+                fi
+            done
+        else
+            # === LEGACY FALLBACK ===
+            echo -e "${YELLOW}Security Setup: Input correct password for '$B_USER'.${NC}"
+            while true; do
+                read -sp "Enter Password for $B_USER: " PASSWORD
+                echo ""
+
+                if [ -n "$TEST_IP" ]; then
+                    echo -n "Verifying password against $TEST_IP... "
+                    sshpass -p "$PASSWORD" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 "${B_USER}@${TEST_IP}" "exit" 2>/dev/null
+
+                    if [ $? -eq 0 ]; then
+                        echo -e "${GREEN}VALID.${NC}"
+                        break
+                    else
+                        echo -e "${RED}INVALID.${NC}"
+                        read -p "Retry? (y/n): " RETRY
+                        if [[ "$RETRY" =~ ^[Nn]$ ]]; then echo -e "${RED}Aborted.${NC}"; exit 1; fi
+                    fi
+                else
+                    break
+                fi
+            done
+        fi
+        # === END AUTH LOGIC ===
 
         echo "$PASSWORD" > "$AUTH"
         chmod 600 "$AUTH"
@@ -109,7 +145,17 @@ setup_root_creds() {
     # Prompt for Password Sync
     echo -e "${YELLOW}Warning: This will enable Root Login and update SSHD config.${NC}"
     echo -e "Remote root password will be set to match your local bridge password."
-    read -p "Continue? (y/N): " SYNC_CONFIRM
+
+    # Use gum confirm if available
+    if command -v gum &> /dev/null; then
+        if gum confirm "Continue with password sync?"; then
+            SYNC_CONFIRM="y"
+        else
+            SYNC_CONFIRM="n"
+        fi
+    else
+        read -p "Continue? (y/N): " SYNC_CONFIRM
+    fi
 
     if [[ ! "$SYNC_CONFIRM" =~ ^[Yy]$ ]]; then
         echo -e "${BLUE}Skipping password sync.${NC}"

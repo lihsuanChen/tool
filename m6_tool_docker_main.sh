@@ -12,15 +12,32 @@ show_docker_menu() {
     local TARGET_IP=$2
 
     echo -e "${YELLOW}Docker Actions for ${TARGET_IP}:${NC}"
-    echo -e "  ${GREEN}1)${NC} Install Docker Platform"
-    echo -e "  ${GREEN}2)${NC} Deploy Environment (Pull Images & Configs)"
-    echo -e "  ${GREEN}3)${NC} Deploy App Code (Sync WAR & Restart)"
-    echo -e "  ${GREEN}4)${NC} Optimize Storage (Fix 'No Space')"
-    echo -e "  ${GREEN}0)${NC} Cancel"
 
-    echo ""
-    read -p "Select action [1]: " ACTION_CHOICE
-    ACTION_CHOICE=${ACTION_CHOICE:-1}
+    # Check if gum is available
+    if command -v gum &> /dev/null; then
+        # === GUM MENU ===
+        # We present a nice list. We must capture the output to a variable.
+        # The user sees the full string "1. Install...", but we parse it below.
+        ACTION=$(gum choose \
+            "1. Install Docker Platform" \
+            "2. Deploy Environment (Pull Images & Configs)" \
+            "3. Deploy App Code (Sync WAR & Restart)" \
+            "4. Optimize Storage (Fix 'No Space')" \
+            "0. Cancel")
+
+        # Extract just the first character (1, 2, 3...)
+        ACTION_CHOICE="${ACTION:0:1}"
+    else
+        # === LEGACY MENU ===
+        echo -e "  ${GREEN}1)${NC} Install Docker Platform"
+        echo -e "  ${GREEN}2)${NC} Deploy Environment (Pull Images & Configs)"
+        echo -e "  ${GREEN}3)${NC} Deploy App Code (Sync WAR & Restart)"
+        echo -e "  ${GREEN}4)${NC} Optimize Storage (Fix 'No Space')"
+        echo -e "  ${GREEN}0)${NC} Cancel"
+        echo ""
+        read -p "Select action [1]: " ACTION_CHOICE
+        ACTION_CHOICE=${ACTION_CHOICE:-1}
+    fi
 
     case "$ACTION_CHOICE" in
         1) install_docker_remote "$REMOTE_USER" "$TARGET_IP" ;;
