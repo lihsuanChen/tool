@@ -13,9 +13,16 @@ setup_jprofiler_remote() {
     local REMOTE_USER=$1
     local TARGET_IP=$2
 
-    # Load Vars from .t_config
+    # Load Vars from .t_config (with defaults for safety)
     local T_HOME="${TOMCAT_HOME:-/usr/share/tomcat10}"
     local SERVICE="${TOMCAT_SERVICE:-tomcat10}"
+
+    # JProfiler Legacy Config (Defaults to v12.0.4 if not set in .t_config)
+    local JP_VER="${JP_LEGACY_VER:-12.0.4}"
+    local JP_URL="${JP_LEGACY_URL:-https://download.ej-technologies.com/jprofiler/jprofiler_agent_linux-x86_12_0_4.tar.gz}"
+    local JP_HOME="${JP_LEGACY_HOME:-/opt/jprofiler12}"
+    local JP_PORT="${JP_AGENT_PORT:-8849}"
+    local JP_LIB="${JP_LIB_PATH:-bin/linux-x64/libjprofilerti.so}"
 
     log_step "JPROFILER" "Configuring JProfiler on ${TARGET_IP}..."
 
@@ -49,13 +56,7 @@ setup_jprofiler_remote() {
         # Strategy: Agent Path (Requires Install + Config)
         # ==========================================
         echo -e "[Remote] Detected: \033[1;33mJava 17- (Score: \$VER_SCORE)\033[0m"
-        echo -e "[Remote] Strategy: \033[1;32mInstalling JProfiler 12 Agent...\033[0m"
-
-        JP_MAJOR="12"
-        JP_FULL="12.0.4"
-        JP_HOME="/opt/jprofiler12"
-        JP_URL="https://download.ej-technologies.com/jprofiler/jprofiler_agent_linux-x86_12_0_4.tar.gz"
-        LIB_PATH="bin/linux-x64/libjprofilerti.so"
+        echo -e "[Remote] Strategy: \033[1;32mInstalling JProfiler ${JP_VER} Agent...\033[0m"
 
         SKIP_INSTALL=false
     fi
@@ -69,9 +70,9 @@ setup_jprofiler_remote() {
 
     # --- 4. FIREWALL (Common Pre-req) ---
     if command -v firewall-cmd &> /dev/null; then
-        if ! firewall-cmd --list-ports | grep -q "8849/tcp"; then
-            echo '[Remote] Opening Port 8849...'
-            firewall-cmd --add-port=8849/tcp --permanent >/dev/null
+        if ! firewall-cmd --list-ports | grep -q "${JP_PORT}/tcp"; then
+            echo '[Remote] Opening Port ${JP_PORT}...'
+            firewall-cmd --add-port=${JP_PORT}/tcp --permanent >/dev/null
             firewall-cmd --reload >/dev/null
         fi
     fi
@@ -80,21 +81,27 @@ setup_jprofiler_remote() {
     if [ "\$SKIP_INSTALL" = false ]; then
 
         # A. Install
-        if [ ! -d "\$JP_HOME" ]; then
-            echo "[Remote] Downloading JProfiler \$JP_FULL..."
-            wget -q -O /tmp/jprofiler.tar.gz "\$JP_URL"
+        if [ ! -d "${JP_HOME}" ]; then
+            echo "[Remote] Downloading JProfiler Agent..."
+            wget -q -O /tmp/jprofiler.tar.gz "${JP_URL}"
 
-            echo "[Remote] Extracting to \$JP_HOME..."
-            tar xzf /tmp/jprofiler.tar.gz --directory /opt
+            echo "[Remote] Extracting to ${JP_HOME}..."
+            # Create a temp dir to extract and find the root folder name
+            mkdir -p /opt/jp_tmp
+            tar xzf /tmp/jprofiler.tar.gz --directory /opt/jp_tmp
 
-            if [ -d "/opt/jprofiler12.0.4" ]; then mv /opt/jprofiler12.0.4 "\$JP_HOME"; fi
+            # Move the extracted content (whatever the folder name is) to target HOME
+            mv /opt/jp_tmp/* "${JP_HOME}"
+            rm -rf /opt/jp_tmp
             rm -f /tmp/jprofiler.tar.gz
         fi
 
         # B. Configure setenv.sh
         echo "[Remote] Updating setenv.sh with Agent Path..."
         SETENV="${T_HOME}/bin/setenv.sh"
-        AGENT_STR="-agentpath:\$JP_HOME/\$LIB_PATH=port=8849,nowait"
+
+        # Construct the agent string using configured variables
+        AGENT_STR="-agentpath:${JP_HOME}/${JP_LIB}=port=${JP_PORT},nowait"
         INJECT_LINE="CATALINA_OPTS=\"\$AGENT_STR \$CATALINA_OPTS\""
 
         if [ ! -f "\$SETENV" ]; then touch "\$SETENV"; chmod +x "\$SETENV"; fi

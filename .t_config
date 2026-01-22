@@ -1,3 +1,4 @@
+#!/bin/bash
 # ============================================
 #  USER CONFIGURATION FOR 't' TOOL SUITE
 # ============================================
@@ -40,6 +41,15 @@ export OCULAN_ROOT="/var/oculan"
 export OCULAN_LOG_BASE="/var/log/oculan"
 # Used by m6_docker_optimize.sh
 export DOCKER_DATA_DEST="${OCULAN_ROOT}/docker-data"
+
+# --- JPROFILER CONFIGURATION (NEW) ---
+# Configuration for Legacy (Java 17-) Agent
+export JP_LEGACY_VER="12.0.4"
+export JP_LEGACY_URL="https://download.ej-technologies.com/jprofiler/jprofiler_agent_linux-x86_12_0_4.tar.gz"
+export JP_LEGACY_HOME="/opt/jprofiler12"
+export JP_AGENT_PORT="8849"
+# Relative path inside the tarball to the library
+export JP_LIB_PATH="bin/linux-x64/libjprofilerti.so"
 
 # --- Remote Deployment Destinations (Legacy Support) ---
 # Where the Client (Node.js) build goes
