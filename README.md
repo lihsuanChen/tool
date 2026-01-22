@@ -4,19 +4,20 @@ A modular shell script suite for automating Java WAR deployments, Node.js Client
 
 ## 🌟 Features at a Glance
 
-* [cite_start]**Context-Aware Deployment:** Detects if you are in a Server, Client, or Database repo and runs the correct build/deploy logic automatically.
-* [cite_start]**Self-Healing SSH:** Automatically attempts to fix "Host Identification Changed" errors and installs missing keys.
-* [cite_start]**Knowledge Base:** A built-in "Cheat Sheet" engine with fuzzy search (`tf`).
-* [cite_start]**Remote Editing:** Edit remote files directly in your local IntelliJ (via SSHFS) or terminal editors.
-* [cite_start]**VM Provisioning:** One-command setup (`initvm`) to prepare a fresh VM for development (Root, Postgres, Tomcat).
-* [cite_start]**Docker Optimization:** Reclaims root partition space by migrating data to a larger partition[cite: 20].
+* **Context-Aware Deployment:** Detects if you are in a Server, Client, or Database repo and runs the correct build/deploy logic automatically.
+* **Self-Healing SSH:** Automatically attempts to fix "Host Identification Changed" errors and installs missing keys.
+* **Knowledge Base:** A built-in "Cheat Sheet" engine with fuzzy search (`tf`).
+* **Remote Editing:** Edit remote files directly in your local IntelliJ (via SSHFS) or terminal editors.
+* **VM Provisioning:** One-command setup (`initvm`) to prepare a fresh VM for development (Root, Postgres, Tomcat).
+* **JProfiler Integration:** Smart profiling setup that adapts to the target's Java version.
+* **Docker Optimization:** Reclaims root partition space by migrating data to a larger partition.
 
 ---
 
 ## 🚀 Installation
 
-1.  [cite_start]**File Setup:** Place all scripts in `~/scripts/`.
-2.  [cite_start]**Configure Aliases:** Run `source ~/scripts/tool_install.sh` to register `t`, `td`, `tf`, and `te`.
+1.  **File Setup:** Place all scripts in `~/scripts/`.
+2.  **Configure Aliases:** Run `source ~/scripts/tool_install.sh` to register `t`, `td`, `tf`, and `te`.
 
 ---
 
@@ -25,7 +26,7 @@ A modular shell script suite for automating Java WAR deployments, Node.js Client
 ### ⚡ Core Commands
 
 #### `t deploy <IP>` (Alias: `td`)
-* [cite_start]**Function:** Smart Deployment Router.
+* **Function:** Smart Deployment Router.
   | Mode | Directory Name Requirement | File Requirement | Action |
   | :--- | :--- | :--- | :--- |
   | **SERVER** | Folder named **`server`** | Folder **`./dcTrackApp`** | Maven Build -> SCP WAR -> Restart Tomcat |
@@ -33,20 +34,28 @@ A modular shell script suite for automating Java WAR deployments, Node.js Client
   | **DB** | *No restriction* | **`./.../liquibase/changesets`** | Rsync XMLs -> Remote Migration |
 
 #### `t docker <IP> [subcommand]`
-* [cite_start]**Function:** Docker Platform Orchestration[cite: 15, 17].
-* [cite_start]**`install`**: Installs Docker and configures the Nexus registry[cite: 15].
-* [cite_start]**`env`**: Deploys the environment, syncs `env.dev`, and toggles image/volume modes[cite: 21].
-* [cite_start]**`optimize`**: Moves Docker storage to a larger partition via bind mounts[cite: 20].
+* **Function:** Docker Platform Orchestration.
+* **`install`**: Installs Docker and configures the Nexus registry.
+* **`env`**: Deploys the environment, syncs `env.dev`, and toggles image/volume modes.
+* **`optimize`**: Moves Docker storage to a larger partition via bind mounts.
 
 #### `t edit <IP> [path]` (Alias: `te`)
-* [cite_start]**Function:** Remote File Editor[cite: 16].
-* **Detail:** Opens remote files. [cite_start]If no path is provided, it shows a **History Menu** of recently edited files[cite: 16].
+* **Function:** Remote File Editor.
+* **Detail:** Opens remote files. If no path is provided, it shows a **History Menu** of recently edited files.
 
 #### `t viewlog <IP>` (Alias: `t log`)
-* [cite_start]**Function:** Interactive Log Viewer.
+* **Function:** Interactive Log Viewer.
 
 ---
 
 ### 🛠️ Admin & Init
+
 #### `t initvm <IP>`
-* [cite_start]**Function:** Master provisioning command (Root + Postgres + Tomcat).
+* **Function:** Master provisioning command (Root + Postgres + Tomcat).
+
+#### `t jprofiler <IP> [off]`
+* **Function:** Configure Remote JProfiler (Port 8849).
+* **Auto-Detection:**
+    * **Modern (JDK 21+):** Updates `setenv.sh` with `-agentpath` and restarts Tomcat.
+    * **Legacy (JDK 17-):** Uses `jpenable` to attach to the running process (No restart required).
+* **Disable:** Run `t jprofiler <IP> off` to remove the agent configuration and restart the service.

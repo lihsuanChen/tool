@@ -4,13 +4,13 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # ================= 2. DEFAULT CONFIGURATION =================
+# These act as fallbacks. The primary config is in .t_config
 REMOTE_USER="root"
 BRIDGE_USER="sunbird"
 AUTH_FILE="$HOME/.sunbird_auth"
 CMD_LIBRARY="$HOME/scripts/m3_my_commands.txt"
 BASE_IP="192.168"
 DEFAULT_SUBNET="78"
-LOCAL_DNF_SCRIPT="$HOME/projects/test_automation/dnfupdate.sh"
 DEFAULT_SEARCH_LIMIT="8"
 
 # ================= 3. USER OVERRIDES =================
@@ -18,16 +18,33 @@ USER_CONFIG="$SCRIPT_DIR/.t_config"
 if [ -f "$USER_CONFIG" ]; then source "$USER_CONFIG"; fi
 
 # ================= 4. EXPORT GLOBAL STATE =================
+# Core Variables
 export REMOTE_USER BRIDGE_USER AUTH_FILE CMD_LIBRARY BASE_IP DEFAULT_SUBNET LOCAL_DNF_SCRIPT DEFAULT_SEARCH_LIMIT
 
+# System Services & Names (Centralized)
+export TOMCAT_SERVICE TOMCAT_APP_NAME PG_SERVICE
+
+# Remote Paths: Tomcat
+export TOMCAT_HOME TOMCAT_WEBAPPS TOMCAT_LOG_BASE
+
+# Remote Paths: Postgres
+export PG_DATA_DIR PG_HBA_CONF POSTGRES_LOG_DIR
+
+# Remote Paths: App & Docker
+export OCULAN_ROOT OCULAN_LOG_BASE DOCKER_DATA_DEST
+
 # ================= 5. LOAD MODULES =================
+# Core Libraries
 source "$SCRIPT_DIR/m1_lib_ssh.sh"
-source "$SCRIPT_DIR/m3_tool_cheatsheet.sh"
 source "$SCRIPT_DIR/tool_help.sh"
+source "$SCRIPT_DIR/m3_tool_cheatsheet.sh"
+
+# Feature Modules
 source "$SCRIPT_DIR/m4_tool_postgres.sh"
-source "$SCRIPT_DIR/tool_readme.sh"
 source "$SCRIPT_DIR/m4_tool_tomcat.sh"
 source "$SCRIPT_DIR/m4_tool_init_vm.sh"
+source "$SCRIPT_DIR/m4_tool_jprofiler.sh"  # <--- NEW MODULE
+source "$SCRIPT_DIR/tool_readme.sh"
 source "$SCRIPT_DIR/tool_viewlog.sh"
 source "$SCRIPT_DIR/tool_edit.sh"
 source "$SCRIPT_DIR/m6_tool_docker_main.sh"
@@ -47,10 +64,19 @@ while [[ $# -gt 0 ]]; do
       esac
   else
       case $1 in
-        deploy|dnfupdate|ssh|docker|setpass|find|readme|rootsetup|pgtrust|tomcatsetup|initvm|viewlog|logview|log|setlogviewer|edit) MODE="$1"; shift ;;
+        # Core Commands
+        deploy|dnfupdate|ssh|docker|find|readme|edit) MODE="$1"; shift ;;
+        # Admin & Setup Commands
+        setpass|rootsetup|pgtrust|tomcatsetup|initvm|jprofiler) MODE="$1"; shift ;;
+        # Logging Commands
+        viewlog|logview|log|setlogviewer) MODE="$1"; shift ;;
+
+        # Flags
         -f|-v|--version) export TARGET_VERSION="$2"; shift 2 ;;
         -l|--limit) export SEARCH_LIMIT="$2"; shift 2 ;;
         -h|--help|--h|-help) print_help; exit 0 ;;
+
+        # Default: Treat as IP part
         *) if [[ -z "$IP_SUFFIX" ]]; then IP_SUFFIX="$1"; else IP_SUFFIX="$IP_SUFFIX $1"; fi; shift ;;
       esac
   fi
@@ -123,14 +149,11 @@ case "$MODE" in
         if [ -z "$TARGET_IP" ]; then error_exit "IP Required. Usage: t docker <IP>"; fi
         check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
 
-        # Clean whitespace from args
+        # Trim args to support subcommands like 't docker 105 ps'
         TRIMMED_ARGS=$(echo "$EXTRA_ARGS" | xargs)
-
         if [ -z "$TRIMMED_ARGS" ]; then
-            # NO ARGS -> SHOW MENU
             show_docker_menu "${REMOTE_USER}" "${TARGET_IP}"
         else
-            # ARGS PRESENT -> DIRECT ROUTE (e.g. 't docker 105 ps')
             docker_router "$TRIMMED_ARGS" "${REMOTE_USER}" "${TARGET_IP}"
         fi
         exit 0
@@ -155,6 +178,20 @@ case "$MODE" in
         if [ -z "$TARGET_IP" ]; then error_exit "IP Required for tomcatsetup."; fi
         check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
         enable_tomcat_debug "${REMOTE_USER}" "${TARGET_IP}"
+        exit 0
+        ;;
+    jprofiler)
+        if [ -z "$TARGET_IP" ]; then error_exit "IP Required for jprofiler."; fi
+        check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
+
+        # Check for 'off' or 'detach' in the extra arguments
+        TRIMMED_ARGS=$(echo "$EXTRA_ARGS" | xargs)
+
+        if [[ "$TRIMMED_ARGS" == "off" ]] || [[ "$TRIMMED_ARGS" == "detach" ]]; then
+            disable_jprofiler_remote "${REMOTE_USER}" "${TARGET_IP}"
+        else
+            setup_jprofiler_remote "${REMOTE_USER}" "${TARGET_IP}"
+        fi
         exit 0
         ;;
     initvm)

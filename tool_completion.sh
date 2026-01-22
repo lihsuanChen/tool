@@ -5,21 +5,34 @@ _t_completion() {
     local cur prev words cword
     _init_completion || return
 
-    local commands="deploy ssh find dnfupdate setpass rootsetup pgtrust tomcatsetup initvm viewlog logview log setlogviewer readme edit docker"
+    # 1. Main Commands
+    local commands="deploy ssh find dnfupdate setpass rootsetup pgtrust tomcatsetup initvm jprofiler viewlog logview log setlogviewer readme edit docker"
 
-    # Check if the previous word was "docker"
-    # COMP_WORDS contains the array of words
-    # COMP_CWORD is the index of the current cursor
+    # 2. Context-Aware Completion
+    # Check the main command (always at index 1)
+    local main_cmd="${COMP_WORDS[1]}"
 
-    # Handle subcommand completion for 'docker'
-    # If the word BEFORE the current cursor was "docker"
-    if [[ "${COMP_WORDS[COMP_CWORD-1]}" == "docker" ]]; then
-         local docker_subs="install deploy db ps"
-         COMPREPLY=( $(compgen -W "$docker_subs" -- "$cur") )
-         return 0
-    fi
+    case "$main_cmd" in
+        docker)
+            # If we are looking for the subcommand (after the IP usually)
+            # t docker 105 [TAB]
+            if [[ $COMP_CWORD -eq 3 ]]; then
+                 local docker_subs="install deploy db ps optimize"
+                 COMPREPLY=( $(compgen -W "$docker_subs" -- "$cur") )
+                 return 0
+            fi
+            ;;
+        jprofiler)
+            # t jprofiler 105 [TAB]
+            if [[ $COMP_CWORD -eq 3 ]]; then
+                 local profiler_opts="off detach"
+                 COMPREPLY=( $(compgen -W "$profiler_opts" -- "$cur") )
+                 return 0
+            fi
+            ;;
+    esac
 
-    # Standard command completion (First Argument)
+    # 3. Standard Completion (First Argument)
     if [[ $COMP_CWORD -eq 1 ]]; then
         COMPREPLY=( $(compgen -W "$commands" -- "$cur") )
     fi

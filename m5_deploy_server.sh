@@ -2,24 +2,24 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/m1_lib_ssh.sh"
 
-APP_DIR="dcTrackApp"
-# Load Destination from Config (with fallback)
-REMOTE_DEST="${DEST_SERVER_WAR:-/var/lib/tomcat10/webapps}"
-SERVICE_NAME="tomcat10"
+# ================= CONFIGURATION =================
+# We prefer variables from .t_config, but keep fallbacks just in case
+SERVICE_NAME="${TOMCAT_SERVICE:-tomcat10}"
+APP_NAME="${TOMCAT_APP_NAME:-dcTrackApp}"
+REMOTE_DEST="${TOMCAT_WEBAPPS:-/var/lib/tomcat10/webapps}"
 
 # ================= 1. GUARD CLAUSE =================
 : "${TARGET_IP:?ERROR: This script must be run via the 't' dispatcher.}"
 
 # ================= 2. BUILD (Maven) =================
-# Use normalized version for logging
 DISPLAY_VER="${VERSION_WITH_DOTS:-LATEST}"
 log_step "BUILD" "Building Server (Version: ${YELLOW}${DISPLAY_VER}${NC})..."
 
 # Detect where pom.xml is
 if [ -f "./pom.xml" ]; then
     BUILD_CMD="mvn clean install -DskipTests -T 1C"
-elif [ -f "./$APP_DIR/pom.xml" ]; then
-    cd "$APP_DIR" || error_exit "Could not enter $APP_DIR"
+elif [ -f "./${APP_NAME}/pom.xml" ]; then
+    cd "${APP_NAME}" || error_exit "Could not enter ${APP_NAME}"
     BUILD_CMD="mvn clean install -DskipTests -T 1C"
 else
     error_exit "No pom.xml found. Are you in the 'server' root?"
@@ -33,7 +33,6 @@ if [ $? -ne 0 ]; then error_exit "Maven build failed."; fi
 if [ -f "../pom.xml" ]; then cd ..; fi
 
 # ================= 3. LOCATE ARTIFACT =================
-# Find the freshest WAR file
 WAR_FILE=$(find . -type f -name "*.war" -path "*/target/*" | head -n 1)
 
 if [ -z "$WAR_FILE" ]; then error_exit "No WAR file found in ./target."; fi
@@ -42,8 +41,8 @@ echo -e "Found Artifact: ${GREEN}${WAR_FILE}${NC}"
 # ================= 4. UPLOAD (RSYNC) =================
 log_step "UPLOAD" "Syncing WAR to ${TARGET_IP}:${REMOTE_DEST}..."
 
-# We use rsync to upload to a temporary staging path first
-rsync -avz -e ssh --progress "${WAR_FILE}" "${REMOTE_USER}@${TARGET_IP}:/tmp/dcTrackApp.war"
+# Upload to tmp first
+rsync -avz -e ssh --progress "${WAR_FILE}" "${REMOTE_USER}@${TARGET_IP}:/tmp/${APP_NAME}.war"
 
 if [ $? -ne 0 ]; then error_exit "Upload failed."; fi
 
@@ -51,18 +50,18 @@ if [ $? -ne 0 ]; then error_exit "Upload failed."; fi
 log_step "REMOTE" "Deploying & Restarting ${SERVICE_NAME}..."
 
 REMOTE_CMDS="
-    echo '[Remote] Stopping Tomcat...';
+    echo '[Remote] Stopping ${SERVICE_NAME}...';
     systemctl stop ${SERVICE_NAME};
 
     echo '[Remote] Cleaning old deployment...';
-    rm -rf ${REMOTE_DEST}/dcTrackApp;
-    rm -rf /var/lib/${SERVICE_NAME}/work/Catalina/localhost/dcTrackApp;
+    rm -rf ${REMOTE_DEST}/${APP_NAME};
+    rm -rf /var/lib/${SERVICE_NAME}/work/Catalina/localhost/${APP_NAME};
 
     echo '[Remote] Installing new WAR...';
-    mv /tmp/dcTrackApp.war ${REMOTE_DEST}/dcTrackApp.war;
-    chmod 775 ${REMOTE_DEST}/dcTrackApp.war;
+    mv /tmp/${APP_NAME}.war ${REMOTE_DEST}/${APP_NAME}.war;
+    chmod 775 ${REMOTE_DEST}/${APP_NAME}.war;
 
-    echo '[Remote] Starting Tomcat...';
+    echo '[Remote] Starting ${SERVICE_NAME}...';
     systemctl start ${SERVICE_NAME};
 "
 

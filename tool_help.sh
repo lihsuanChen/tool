@@ -21,6 +21,8 @@ print_help() {
     echo -e ""
     echo -e "${YELLOW}ADMIN & INIT:${NC}"
     echo -e "  ${GREEN}initvm${NC}      Full Init: Root Setup + Postgres Trust + Tomcat Debug"
+    echo -e "  ${GREEN}jprofiler${NC}   Enable/Disable JProfiler (Auto-detects JDK version)"
+    echo -e "                 ${BLUE}Usage: t jprofiler <IP> [off]${NC}"
     echo -e "  ${GREEN}rootsetup${NC}   Enable Root SSH (w/ Password Sync Prompt)"
     echo -e "  ${GREEN}pgtrust${NC}     Whitelist Local IP in Remote Postgres"
     echo -e "  ${GREEN}tomcatsetup${NC} Enable Remote Debug (Port 8000)"

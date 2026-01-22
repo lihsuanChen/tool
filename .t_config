@@ -14,22 +14,38 @@ export AUTH_FILE="$HOME/.sunbird_auth"
 
 # --- Local Paths ---
 export CMD_LIBRARY="$HOME/scripts/m3_my_commands.txt"
+export LOCAL_DNF_SCRIPT="$HOME/projects/test_automation/dnfupdate.sh"
 # Path to your IntelliJ/IDE CLI launcher (used by 't edit')
-# Adjust this path if you use VS Code ('code') or a different install path
 export LOCAL_IDE_PATH="$HOME/.local/share/JetBrains/Toolbox/scripts/idea"
 
-# --- Remote Deployment Destinations ---
-# Where the Server WAR file goes
-export DEST_SERVER_WAR="/var/lib/tomcat10/webapps"
+# --- SYSTEM SERVICES (NEW: Centralized Service Names) ---
+export TOMCAT_SERVICE="tomcat10"
+export TOMCAT_APP_NAME="dcTrackApp"
+export PG_SERVICE="postgresql"
+
+# --- REMOTE PATHS: TOMCAT (NEW) ---
+# Used by m4_tool_tomcat.sh and m5_deploy_server.sh
+export TOMCAT_HOME="/usr/share/${TOMCAT_SERVICE}"
+export TOMCAT_WEBAPPS="/var/lib/${TOMCAT_SERVICE}/webapps"
+export TOMCAT_LOG_BASE="/var/log/${TOMCAT_SERVICE}"
+
+# --- REMOTE PATHS: POSTGRES (NEW) ---
+# Used by m4_tool_postgres.sh and tool_viewlog.sh
+export PG_DATA_DIR="/var/lib/pgsql/data"
+export PG_HBA_CONF="${PG_DATA_DIR}/pg_hba.conf"
+export POSTGRES_LOG_DIR="${PG_DATA_DIR}/log"
+
+# --- REMOTE PATHS: APP & DOCKER (NEW) ---
+export OCULAN_ROOT="/var/oculan"
+export OCULAN_LOG_BASE="/var/log/oculan"
+# Used by m6_docker_optimize.sh
+export DOCKER_DATA_DEST="${OCULAN_ROOT}/docker-data"
+
+# --- Remote Deployment Destinations (Legacy Support) ---
 # Where the Client (Node.js) build goes
 export DEST_CLIENT_DIST="/opt/raritan/dcTrack/appClient"
 # Where Database Liquibase changesets go
 export DEST_DB_CHANGESETS="/var/oculan/raritan/liquibase/changesets"
-
-# --- Remote Logging Base Paths ---
-export TOMCAT_LOG_BASE="/var/log/tomcat10"
-export OCULAN_LOG_BASE="/var/log/oculan"
-export POSTGRES_LOG_DIR="/var/lib/pgsql/data/log"
 
 # --- Preferences ---
 export DEFAULT_SEARCH_LIMIT="8"
