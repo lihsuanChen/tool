@@ -9,30 +9,28 @@ deploy_server_container() {
     local REMOTE_USER=$1
     local TARGET_IP=$2
 
-    # --- 1. CONTEXT DETECTION & PRE-FLIGHT CHECK ---
+    # --- 1. STRICT CONTEXT VALIDATION (Match m5_process_deploy.sh) ---
     local CURRENT_DIR
     CURRENT_DIR=$(pwd)
-    local LOCAL_ARTIFACT_DIR=""
-    local LOCAL_ARTIFACT_WAR=""
+    local BASENAME
+    BASENAME=$(basename "$CURRENT_DIR")
 
-    if [ -f "./pom.xml" ]; then
-        # Scenario A: We are in 'server' root (contains dcTrackApp subfolder)
-        if [ -d "./dcTrackApp" ]; then
-            log_step "CONTEXT" "Detected Server Root at: ${CURRENT_DIR}"
-            LOCAL_ARTIFACT_DIR="${CURRENT_DIR}/dcTrackApp/target/dcTrackApp"
-            LOCAL_ARTIFACT_WAR="${CURRENT_DIR}/dcTrackApp/target/dcTrackApp.war"
-
-        # Scenario B: We are inside 'dcTrackApp' module
-        elif grep -q "artifactId>dcTrackApp<" pom.xml 2>/dev/null || [ -d "./src/main/webapp" ]; then
-            log_step "CONTEXT" "Detected App Module at: ${CURRENT_DIR}"
-            LOCAL_ARTIFACT_DIR="${CURRENT_DIR}/target/dcTrackApp"
-            LOCAL_ARTIFACT_WAR="${CURRENT_DIR}/target/dcTrackApp.war"
-        else
-            error_exit "Found pom.xml but could not identify 'dcTrackApp' structure.\nPlease run from the 'server' root or 'dcTrackApp' folder."
-        fi
+    # Fingerprint: Folder is named 'server' AND contains 'dcTrackApp'
+    if [ "$BASENAME" == "server" ] && [ -d "./dcTrackApp" ]; then
+        log_step "CONTEXT" "Detected Server Root at: ${CURRENT_DIR}"
     else
-        error_exit "No 'pom.xml' found in ${CURRENT_DIR}.\nPlease navigate to your Server git worktree before deploying."
+        echo -e "${RED}CRITICAL ERROR: Invalid Repository Context${NC}"
+        echo "Current directory: $CURRENT_DIR"
+        echo "Could not identify the project type based on files."
+        echo "Required Fingerprint for Docker Server Deploy:"
+        echo -e "  Folder 'server' + 'dcTrackApp' subfolder"
+        exit 1
     fi
+
+    # --- 2. DEFINE PATHS ---
+    # Since we passed validation, we know exactly where we are.
+    local LOCAL_ARTIFACT_WAR="${CURRENT_DIR}/dcTrackApp/target/dcTrackApp.war"
+    local STAGING_DIR="${CURRENT_DIR}/dcTrackApp/target/_docker_stage"
 
     # --- Remote Paths ---
     local REMOTE_ROOT="${DOCKER_PROJECT_ROOT:-/dct_builds/docker}"
@@ -42,39 +40,61 @@ deploy_server_container() {
 
     log_step "DEPLOY-SERVER" "Preparing Server (Tomcat) deployment to ${TARGET_IP}..."
 
-    # --- 2. BUILD STRATEGY ---
+    # --- 3. BUILD STRATEGY ---
     echo -e "${YELLOW}Choose Deployment Strategy:${NC}"
     local STRATEGY
     STRATEGY=$(ui_choose "Direct Deploy (Use existing artifacts)" "Build & Deploy (mvn clean install)")
 
     if [[ "$STRATEGY" == "Build"* ]]; then
         echo -e "\n${BLUE}Starting Maven Build in ${CURRENT_DIR}...${NC}"
-        # We are already in the correct directory due to pre-checks
         mvn clean install -DskipTests -T 1C
         if [ $? -ne 0 ]; then error_exit "Maven build failed."; fi
         echo -e "${GREEN}Build Successful!${NC}\n"
     fi
 
-    # --- 3. SYNC CODE ---
+    # --- 4. STAGING (EXPLODE WAR) ---
+    # We ignore the default Maven exploded dir because it may lack META-INF data.
+    # Instead, we explode the WAR into a custom staging area.
+
+    if [ ! -f "$LOCAL_ARTIFACT_WAR" ]; then
+         error_exit "WAR file not found at: ${LOCAL_ARTIFACT_WAR}\nBuild required? Run 'mvn clean install' first."
+    fi
+
+    log_step "STAGE" "Exploding WAR to staging area (for Rsync optimization)..."
+
+    # Clean and Re-create Staging Dir
+    rm -rf "$STAGING_DIR"
+    mkdir -p "$STAGING_DIR"
+
+    # Extract WAR
+    if command -v unzip &> /dev/null; then
+        unzip -q "$LOCAL_ARTIFACT_WAR" -d "$STAGING_DIR"
+    elif command -v jar &> /dev/null; then
+        pushd "$STAGING_DIR" > /dev/null
+        jar -xf "$LOCAL_ARTIFACT_WAR"
+        popd > /dev/null
+    else
+        error_exit "Cannot extract WAR. Please install 'unzip' or ensure JDK 'jar' is in PATH."
+    fi
+
+    if [ $? -ne 0 ]; then error_exit "Failed to extract WAR file."; fi
+
+    # === DEBUG INFO ===
+    echo -e "DEBUG: Stage created at: ${YELLOW}${STAGING_DIR}${NC}"
+    # ==================
+
+    # --- 5. SYNC CODE ---
     log_step "SYNC" "Transferring Artifacts..."
     ssh "${REMOTE_USER}@${TARGET_IP}" "sudo mkdir -p ${REMOTE_ARTIFACT_PATH}"
 
-    if [ -d "$LOCAL_ARTIFACT_DIR" ]; then
-        echo -e "Syncing Exploded WAR from: ${YELLOW}${LOCAL_ARTIFACT_DIR}${NC}"
-        rsync -avz -e ssh --delete "${LOCAL_ARTIFACT_DIR}/" "${REMOTE_USER}@${TARGET_IP}:${REMOTE_ARTIFACT_PATH}/"
+    echo -e "Syncing from Staging Area..."
+    # We sync the CONTENTS of the staging dir to the remote artifact path
+    rsync -avz -e ssh --delete "${STAGING_DIR}/" "${REMOTE_USER}@${TARGET_IP}:${REMOTE_ARTIFACT_PATH}/"
 
-        # Cleanup root container artifacts to force Tomcat to reload from the mount
-        ssh "${REMOTE_USER}@${TARGET_IP}" "sudo rm -rf ${REMOTE_APP_BASE}/WEB-INF ${REMOTE_APP_BASE}/META-INF ${REMOTE_APP_BASE}/resources 2>/dev/null || true"
+    # Cleanup root container artifacts to force Tomcat to reload from the mount
+    ssh "${REMOTE_USER}@${TARGET_IP}" "sudo rm -rf ${REMOTE_APP_BASE}/WEB-INF ${REMOTE_APP_BASE}/META-INF ${REMOTE_APP_BASE}/resources 2>/dev/null || true"
 
-    elif [ -f "$LOCAL_ARTIFACT_WAR" ]; then
-        echo -e "Syncing WAR file..."
-        rsync -avz -e ssh "$LOCAL_ARTIFACT_WAR" "${REMOTE_USER}@${TARGET_IP}:${REMOTE_ARTIFACT_PATH}/dcTrackApp.war"
-    else
-        echo -e "${YELLOW}No artifacts found at: ${LOCAL_ARTIFACT_DIR}${NC}"
-        error_exit "Build required? Run 'mvn clean install' first."
-    fi
-
-    # --- 4. CONFIG & RESTART ---
+    # --- 6. CONFIG & RESTART ---
     ssh -t "${REMOTE_USER}@${TARGET_IP}" "
         cd ${REMOTE_CONFIG_DIR}
         # Disable Image / Enable Volume
@@ -85,7 +105,7 @@ deploy_server_container() {
         sudo chmod -R 755 ${REMOTE_APP_BASE}
 
         echo '[Remote] Restarting Tomcat Service...'
-        sudo docker compose restart tomcat
+        sudo docker compose up -d tomcat
     "
 
     if [ $? -eq 0 ]; then
