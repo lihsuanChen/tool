@@ -15,6 +15,7 @@ source "$SCRIPT_DIR/m1_lib_ui.sh"
 source "$SCRIPT_DIR/m6_docker_deploy_env.sh"
 source "$SCRIPT_DIR/m6_docker_deploy_server.sh"
 source "$SCRIPT_DIR/m6_docker_deploy_client.sh"
+source "$SCRIPT_DIR/m6_docker_deploy_database.sh" # <--- NEW
 
 # ==============================================================================
 # ROUTER FUNCTION
@@ -25,9 +26,8 @@ deploy_app_code() {
 
     log_step "DEPLOY-ROUTER" "Select Component to Deploy"
 
-    # Use ui_choose for a clean, interactive menu
     local APP_TYPE
-    APP_TYPE=$(ui_choose "Server (Java/Tomcat)" "Client (Angular/Node)" "Cancel")
+    APP_TYPE=$(ui_choose "Server (Java/Tomcat)" "Client (Angular/Node)" "Database (Liquibase)" "Cancel")
 
     case "$APP_TYPE" in
         "Server"*)
@@ -35,6 +35,9 @@ deploy_app_code() {
             ;;
         "Client"*)
             deploy_client_container "$REMOTE_USER" "$TARGET_IP"
+            ;;
+        "Database"*)
+            deploy_database_container "$REMOTE_USER" "$TARGET_IP"
             ;;
         *)
             echo -e "${YELLOW}Deployment cancelled.${NC}"

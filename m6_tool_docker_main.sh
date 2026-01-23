@@ -21,7 +21,7 @@ show_docker_menu() {
         ACTION=$(gum choose \
             "1. Install Docker Platform" \
             "2. Deploy Environment (Pull Images & Configs)" \
-            "3. Deploy App Code (Sync WAR & Restart)" \
+            "3. Deploy Server/Client/DB (Sync Repository & Restart)" \
             "4. Optimize Storage (Fix 'No Space')" \
             "0. Cancel")
 
@@ -31,7 +31,7 @@ show_docker_menu() {
         # === LEGACY MENU ===
         echo -e "  ${GREEN}1)${NC} Install Docker Platform"
         echo -e "  ${GREEN}2)${NC} Deploy Environment (Pull Images & Configs)"
-        echo -e "  ${GREEN}3)${NC} Deploy App Code (Sync WAR & Restart)"
+        echo -e "  ${GREEN}3)${NC} Deploy Server/Client/DB (Sync Repository & Restart)"
         echo -e "  ${GREEN}4)${NC} Optimize Storage (Fix 'No Space')"
         echo -e "  ${GREEN}0)${NC} Cancel"
         echo ""
