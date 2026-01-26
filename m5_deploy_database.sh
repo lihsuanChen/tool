@@ -1,7 +1,9 @@
 #!/bin/bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# --- LOAD LIBRARIES ---
 source "$SCRIPT_DIR/m1_lib_ssh.sh"
-# Inherits m1_lib_ui from tool_main source chain
+source "$SCRIPT_DIR/m1_lib_ui.sh"  # <--- FIXED: Must be explicitly sourced in subprocesses
 
 LOCAL_CHANGESETS="./src/files/opt/raritan/liquibase/changesets"
 # Load Destination from Config (with fallback)
@@ -26,7 +28,7 @@ else
 fi
 echo -e "----------------------------------------"
 
-# === GUM CONFIRMATION (REFACTORED) ===
+# === GUM CONFIRMATION ===
 if ! ui_confirm "EXECUTE MIGRATION ON ${TARGET_IP}?"; then
     echo -e "${RED}Operation Cancelled.${NC}"
     exit 0
