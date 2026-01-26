@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # ==============================================================================
-# MODULE: Log Viewing Utilities
+# MODULE: tool_logs.sh
 # DESCRIPTION: Handles log viewer preferences and remote log viewing (GUI/CLI)
-# DEPENDENCIES: gum, ssh, lnav/glogg (remote)
+# DEPENDENCIES: gum, ssh, lnav/glogg (remote), X11 Server (local for GUI)
 # ==============================================================================
 
 VIEWER_CONFIG="$HOME/.t_viewer_pref"
@@ -57,7 +57,6 @@ view_remote_log_gui() {
 
     # --- 2. BUILD SELECTION MENU ---
     # We create a list for gum filter. Format: "Label | Path"
-    # We will strip the label after selection.
     local OPTIONS=(
         "PostgreSQL Logs (Dynamic List)...|PG_DYN"
         "Tomcat: dcTrackServer.log|/var/log/tomcat10/dcTrackServer.log"
@@ -93,7 +92,6 @@ view_remote_log_gui() {
             echo -e "${YELLOW}Fetching PostgreSQL logs from remote...${NC}"
 
             # Find logs, print 'Timestamp|Date Time|Path', sort by timestamp desc
-            # Using gum spin to indicate activity
             local REMOTE_CMD="find /var/lib/pgsql/data/log/ -maxdepth 1 -name 'postgresql-*.log' -printf '%T@|%Ty-%Tm-%Td %TH:%TM|%p\n' 2>/dev/null | sort -nr"
 
             mapfile -t PG_LOGS < <(gum spin --spinner dot --title "Scanning /var/lib/pgsql/data/log/..." -- ssh "${REMOTE_USER}@${TARGET_IP}" "$REMOTE_CMD")
@@ -137,37 +135,71 @@ view_remote_log_gui() {
     # 3. EXECUTE BASED ON PREFERENCE
     if [ "$USE_VIEWER" == "glogg" ]; then
         # === OPTION A: GLOGG (GUI) ===
+
+        # 1. PRE-FLIGHT: Check Local Display
+        if [ -z "$DISPLAY" ]; then
+            gum style --foreground 196 "ERROR: \$DISPLAY is not set."
+            echo "  To use glogg, you need an X-Server running locally."
+            echo "  - Windows 10: Install VcXsrv"
+            echo "  - Windows 11: Update WSL (wsl --update)"
+            echo "  - Mac: Install XQuartz"
+            return
+        fi
+
         log_step "VIEWLOG" "Checking remote X11/glogg requirements..."
 
-        # Using gum spin for the dependency check
-        gum spin --spinner minidot --title "Verifying glogg installation on remote..." -- ssh "${REMOTE_USER}@${TARGET_IP}" "
-            # A. Fix X11 Auth
+        # 2. REMOTE DEPENDENCY CHECK
+        gum spin --spinner minidot --title "Verifying glogg on remote..." -- ssh "${REMOTE_USER}@${TARGET_IP}" "
             if ! rpm -q xorg-x11-xauth &> /dev/null; then
                 if command -v dnf &> /dev/null; then sudo dnf install -y xorg-x11-xauth; else sudo yum install -y xorg-x11-xauth; fi
             fi
-            # B. Install glogg
             if ! command -v glogg &> /dev/null; then
                 if ! rpm -q epel-release &> /dev/null; then
                     if command -v dnf &> /dev/null; then sudo dnf install -y epel-release; else sudo yum install -y epel-release; fi
                 fi
                 if command -v dnf &> /dev/null; then sudo dnf install -y glogg; else sudo yum install -y glogg; fi
             fi
-            # C. Ensure SSHD Config
             if grep -q '^X11Forwarding no' /etc/ssh/sshd_config; then
                 sudo sed -i 's/^X11Forwarding no/X11Forwarding yes/' /etc/ssh/sshd_config
                 sudo systemctl restart sshd
             fi
         "
 
-        echo -e "${GREEN}Launching glogg... (Check your taskbar if window doesn't appear)${NC}"
-        ssh -X "${REMOTE_USER}@${TARGET_IP}" "glogg '${TARGET_LOG}'" 2>/dev/null &
+        # 3. ATTEMPT LAUNCH WITH DIAGNOSTICS
+        echo -e "${GREEN}Attempting to launch glogg...${NC}"
+
+        # Create a temp log for X11 errors locally
+        local XLOG="/tmp/t_glogg_debug.log"
+        rm -f "$XLOG"
+
+        # Launch in background, but capture Stderr
+        ssh -X "${REMOTE_USER}@${TARGET_IP}" "glogg '${TARGET_LOG}'" 2> "$XLOG" &
+        local PID=$!
+
+        # 4. MONITOR FOR IMMEDIATE FAILURE
+        # We wait 2 seconds. If X11 fails, it usually exits instantly with "Can't open display".
+        gum spin --spinner points --title "Waiting for window..." -- sleep 2
+
+        # Check if the process is still running
+        if kill -0 $PID 2>/dev/null; then
+             gum style --foreground 46 "Success! Check your Taskbar/Dock for the glogg window."
+             disown # Detach so closing terminal doesn't kill glogg
+        else
+             gum style --foreground 196 "GUI Launch Failed!"
+             echo -e "${YELLOW}Debug Output (${XLOG}):${NC}"
+             cat "$XLOG"
+             echo -e "\n${YELLOW}Troubleshooting:${NC}"
+             echo "1. If on Windows 10: Is VcXsrv running?"
+             echo "2. If on Mac: Is XQuartz open?"
+             echo "3. Try 'switch_log_viewer' and select 'lnav' for now."
+        fi
 
     else
         # === OPTION B: LNAV (TERMINAL) ===
 
-        # Check lnav existence silently with gum spin
-        gum spin --spinner minidot --title "Verifying lnav installation on remote..." -- ssh -t "${REMOTE_USER}@${TARGET_IP}" "
+        gum spin --spinner minidot --title "Verifying lnav on remote..." -- ssh -t "${REMOTE_USER}@${TARGET_IP}" "
             if ! command -v lnav &> /dev/null; then
+                echo '[Remote] Installing lnav...'
                 if ! rpm -q epel-release &> /dev/null; then
                     if command -v dnf &> /dev/null; then sudo dnf install -y epel-release; else sudo yum install -y epel-release; fi
                 fi
