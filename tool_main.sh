@@ -233,8 +233,17 @@ case "$MODE" in
         ;;
     edit)
         check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
-        FINAL_PATH="${EXTRA_ARGS}" # Might be empty, tool_edit handles it
+
+        # FIX: Check if the argument was solely the IP. If so, clear it.
+        if [[ "$EXTRA_ARGS" == "$IP_SUFFIX" ]] && [ -n "$TARGET_IP" ]; then
+             FINAL_PATH=""
+        else
+             FINAL_PATH="${EXTRA_ARGS}"
+        fi
+
+        # Allow version override to act as path if path is empty
         if [ -z "$FINAL_PATH" ] && [ -n "$TARGET_VERSION" ]; then FINAL_PATH="$TARGET_VERSION"; fi
+
         edit_remote_file "${REMOTE_USER}" "${TARGET_IP}" "${FINAL_PATH}"
         exit 0
         ;;
