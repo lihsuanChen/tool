@@ -44,11 +44,27 @@ source "$SCRIPT_DIR/m3_tool_cheatsheet.sh"
 source "$SCRIPT_DIR/m4_tool_postgres.sh"
 source "$SCRIPT_DIR/m4_tool_tomcat.sh"
 source "$SCRIPT_DIR/m4_tool_init_vm.sh"
-source "$SCRIPT_DIR/m4_tool_jprofiler.sh"  # <--- NEW MODULE
+source "$SCRIPT_DIR/m4_tool_jprofiler.sh"
 source "$SCRIPT_DIR/tool_readme.sh"
 source "$SCRIPT_DIR/tool_viewlog.sh"
 source "$SCRIPT_DIR/tool_edit.sh"
 source "$SCRIPT_DIR/m6_tool_docker_main.sh"
+
+# ================= HELPER: IP RESOLUTION =================
+resolve_target_ip() {
+    local INPUT=$1
+    if [ -z "$INPUT" ]; then echo ""; return; fi
+
+    if [[ "$INPUT" =~ ^[0-9.]+$ ]] && [[ "$INPUT" =~ [0-9] ]]; then
+        if [[ "$INPUT" == *.* ]]; then
+            echo "$INPUT"
+        else
+            echo "${BASE_IP}.${DEFAULT_SUBNET}.${INPUT}"
+        fi
+    else
+        echo ""
+    fi
+}
 
 # ================= ARGUMENT PARSING =================
 MODE=""
@@ -57,33 +73,65 @@ export TARGET_VERSION=""
 export SEARCH_LIMIT="$DEFAULT_SEARCH_LIMIT"
 
 while [[ $# -gt 0 ]]; do
-  if [ -n "$MODE" ]; then
-      case $1 in
-        -f|-v|--version) export TARGET_VERSION="$2"; shift 2 ;;
-        -l|--limit) export SEARCH_LIMIT="$2"; shift 2 ;;
-        *) if [[ -z "$IP_SUFFIX" ]]; then IP_SUFFIX="$1"; else IP_SUFFIX="$IP_SUFFIX $1"; fi; shift ;;
-      esac
-  else
-      case $1 in
-        # Core Commands
-        deploy|dnfupdate|ssh|docker|find|readme|edit) MODE="$1"; shift ;;
-        # Admin & Setup Commands
-        setpass|rootsetup|pgtrust|tomcatsetup|initvm|jprofiler) MODE="$1"; shift ;;
-        # Logging Commands
-        viewlog|logview|log|setlogviewer) MODE="$1"; shift ;;
+  case $1 in
+    # Core Commands
+    deploy|dnfupdate|ssh|docker|find|readme|edit) MODE="$1"; shift ;;
+    # Admin & Setup Commands
+    setpass|rootsetup|pgtrust|tomcatsetup|initvm|jprofiler) MODE="$1"; shift ;;
+    # Logging Commands
+    viewlog|logview|log|setlogviewer) MODE="$1"; shift ;;
 
-        # Flags
-        -f|-v|--version) export TARGET_VERSION="$2"; shift 2 ;;
-        -l|--limit) export SEARCH_LIMIT="$2"; shift 2 ;;
-        -h|--help|--h|-help) print_help; exit 0 ;;
+    # Flags
+    -f|-v|--version) export TARGET_VERSION="$2"; shift 2 ;;
+    -l|--limit) export SEARCH_LIMIT="$2"; shift 2 ;;
+    -h|--help|--h|-help) print_help; exit 0 ;;
 
-        # Default: Treat as IP part
-        *) if [[ -z "$IP_SUFFIX" ]]; then IP_SUFFIX="$1"; else IP_SUFFIX="$IP_SUFFIX $1"; fi; shift ;;
-      esac
-  fi
+    # Default: Treat as IP part
+    *) if [[ -z "$IP_SUFFIX" ]]; then IP_SUFFIX="$1"; else IP_SUFFIX="$IP_SUFFIX $1"; fi; shift ;;
+  esac
 done
 
-if [ -z "$MODE" ]; then echo -e "${RED}Error: Missing arguments.${NC}"; print_help; exit 1; fi
+# ================= INTERACTIVE MODE (GUM) =================
+# If no command is provided, launch the Interactive Main Menu
+if [ -z "$MODE" ]; then
+    if command -v gum &> /dev/null; then
+        echo -e "${BLUE}:: t Automation Suite ::${NC}"
+        MODE=$(gum choose --header "Select Operation" \
+            "deploy" "ssh" "docker" "edit" "viewlog" \
+            "find" "initvm" "jprofiler" "dnfupdate" "readme")
+
+        if [ -z "$MODE" ]; then echo "Cancelled."; exit 0; fi
+    else
+        echo -e "${RED}Error: Missing arguments.${NC}"; print_help; exit 1;
+    fi
+fi
+
+# ================= IP RESOLUTION & PROMPT =================
+# 1. Try to resolve from arguments
+TARGET_IP=$(resolve_target_ip "$IP_SUFFIX")
+EXTRA_ARGS="$IP_SUFFIX" # Fallback if not an IP
+
+# 2. If IP is invalid/missing but required, prompt for it
+if [ -z "$TARGET_IP" ]; then
+    # Commands that DO NOT require an IP
+    case "$MODE" in
+        find|readme|setlogviewer|setpass) ;;
+        *)
+            # Prompt user
+            echo -e "${YELLOW}Target IP required for '$MODE'.${NC}"
+            RAW_INPUT=$(ui_input "Enter IP (e.g. 105)" "false" "105")
+            TARGET_IP=$(resolve_target_ip "$RAW_INPUT")
+
+            if [ -z "$TARGET_IP" ]; then
+                error_exit "Invalid or missing IP address."
+            fi
+            echo -e "Target defined as: ${YELLOW}${TARGET_IP}${NC}"
+            ;;
+    esac
+fi
+
+# Export for sub-modules
+export TARGET_IP
 
 # ================= NORMALIZE VERSION =================
 export VERSION_WITH_DOTS=""
@@ -105,52 +153,34 @@ if [ -n "$TARGET_VERSION" ]; then
     export VERSION_NO_DOTS
 fi
 
-# ================= CALCULATE IP & ARGS =================
-TARGET_IP=""
-EXTRA_ARGS=""
-
-if [ -n "$IP_SUFFIX" ]; then
-    read -r POTENTIAL_ID REMAINDER <<< "$IP_SUFFIX"
-
-    if [[ "$POTENTIAL_ID" =~ ^[0-9.]+$ ]] && [[ "$POTENTIAL_ID" =~ [0-9] ]]; then
-        if [[ "$POTENTIAL_ID" == *.* ]]; then
-            TARGET_IP="${BASE_IP}.${POTENTIAL_ID}"
-        else
-            TARGET_IP="${BASE_IP}.${DEFAULT_SUBNET}.${POTENTIAL_ID}"
-        fi
-        export TARGET_IP
-        EXTRA_ARGS="$REMAINDER"
-        echo -e "Target defined as: ${YELLOW}${TARGET_IP}${NC}"
-    else
-        EXTRA_ARGS="$IP_SUFFIX"
-    fi
-fi
-
 # ================= MAIN SWITCH =================
 case "$MODE" in
     deploy)
-        if [ -z "$TARGET_IP" ]; then error_exit "IP Required for deploy."; fi
         check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
         log_step "MAIN" "Starting Deployment Process..."
         bash "$SCRIPT_DIR/m5_process_deploy.sh"
         ;;
     dnfupdate)
-        if [ -z "$TARGET_IP" ]; then error_exit "IP Required for dnfupdate."; fi
         check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
         log_step "MAIN" "Starting DNF Update Process..."
         bash "$SCRIPT_DIR/m2_process_dnfupdate.sh"
         ;;
     ssh)
-        if [ -z "$TARGET_IP" ]; then error_exit "IP Required for ssh."; fi
         log_step "MAIN" "Checking Connection..."
         check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
         ssh "${REMOTE_USER}@${TARGET_IP}"
         ;;
     docker)
-        if [ -z "$TARGET_IP" ]; then error_exit "IP Required. Usage: t docker <IP>"; fi
         check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
+        # Support subcommands like 't docker 105 ps'
+        # If EXTRA_ARGS contains the IP, we need to strip it, but our logic put the IP in TARGET_IP.
+        # We assume EXTRA_ARGS might contain the subcommand if it wasn't just an IP.
 
-        # Trim args to support subcommands like 't docker 105 ps'
+        # Simple heuristic: If EXTRA_ARGS matches the IP suffix, clear it.
+        if [[ "$EXTRA_ARGS" == "$IP_SUFFIX" ]] && [ -n "$TARGET_IP" ]; then
+             EXTRA_ARGS=""
+        fi
+
         TRIMMED_ARGS=$(echo "$EXTRA_ARGS" | xargs)
         if [ -z "$TRIMMED_ARGS" ]; then
             show_docker_menu "${REMOTE_USER}" "${TARGET_IP}"
@@ -164,30 +194,23 @@ case "$MODE" in
         exit 0
         ;;
     rootsetup)
-        if [ -z "$TARGET_IP" ]; then error_exit "IP Required for rootsetup."; fi
         ensure_bridge_password "false" "$TARGET_IP"
         setup_root_creds "${BRIDGE_USER}" "${TARGET_IP}"
         exit 0
         ;;
     pgtrust)
-        if [ -z "$TARGET_IP" ]; then error_exit "IP Required for pgtrust."; fi
         check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
         pg_whitelist_ip "${REMOTE_USER}" "${TARGET_IP}"
         exit 0
         ;;
     tomcatsetup)
-        if [ -z "$TARGET_IP" ]; then error_exit "IP Required for tomcatsetup."; fi
         check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
         enable_tomcat_debug "${REMOTE_USER}" "${TARGET_IP}"
         exit 0
         ;;
     jprofiler)
-        if [ -z "$TARGET_IP" ]; then error_exit "IP Required for jprofiler."; fi
         check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
-
-        # Check for 'off' or 'detach' in the extra arguments
         TRIMMED_ARGS=$(echo "$EXTRA_ARGS" | xargs)
-
         if [[ "$TRIMMED_ARGS" == "off" ]] || [[ "$TRIMMED_ARGS" == "detach" ]]; then
             disable_jprofiler_remote "${REMOTE_USER}" "${TARGET_IP}"
         else
@@ -196,12 +219,10 @@ case "$MODE" in
         exit 0
         ;;
     initvm)
-        if [ -z "$TARGET_IP" ]; then error_exit "IP Required for initvm."; fi
         run_init_vm_flow "${REMOTE_USER}" "${TARGET_IP}" "${BRIDGE_USER}"
         exit 0
         ;;
     viewlog|logview|log)
-        if [ -z "$TARGET_IP" ]; then error_exit "IP Required for viewlog."; fi
         check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
         view_remote_log_gui "${REMOTE_USER}" "${TARGET_IP}"
         exit 0
@@ -211,10 +232,9 @@ case "$MODE" in
         exit 0
         ;;
     edit)
-        if [ -z "$TARGET_IP" ]; then error_exit "IP Required for edit."; fi
         check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
-        FINAL_PATH="${EXTRA_ARGS}"
-        if [ -z "$FINAL_PATH" ]; then FINAL_PATH="$TARGET_VERSION"; fi
+        FINAL_PATH="${EXTRA_ARGS}" # Might be empty, tool_edit handles it
+        if [ -z "$FINAL_PATH" ] && [ -n "$TARGET_VERSION" ]; then FINAL_PATH="$TARGET_VERSION"; fi
         edit_remote_file "${REMOTE_USER}" "${TARGET_IP}" "${FINAL_PATH}"
         exit 0
         ;;
