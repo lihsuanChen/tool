@@ -68,7 +68,9 @@ deploy_docker_env() {
     rsync -avz -e ssh "${LOCAL_ENV_DIR}/env.dev" "${REMOTE_USER}@${TARGET_IP}:${REMOTE_CONFIG_DIR}/env.dev"
 
     # 6. Remote Execution
+    # FIX: Added BUILDKIT_PROGRESS=plain to fix TTY scrolling issues
     ssh -t "${REMOTE_USER}@${TARGET_IP}" "
+        export BUILDKIT_PROGRESS=plain
         set -e
         cd ${REMOTE_CONFIG_DIR}
 
@@ -96,6 +98,8 @@ deploy_docker_env() {
             sed -i 's/^getLatestRelease=.*/getLatestRelease=true/' .env
             if ! command -v jq &> /dev/null; then sudo dnf install -y jq || sudo apt-get install -y jq; fi
             chmod +x pullLatestDockerVersion
+
+            # This script will now inherit BUILDKIT_PROGRESS=plain
             ./pullLatestDockerVersion
         else
             sed -i 's/^getLatestRelease=.*/getLatestRelease=false/' .env
