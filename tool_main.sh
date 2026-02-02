@@ -77,7 +77,7 @@ while [[ $# -gt 0 ]]; do
     # Core Commands
     deploy|dnfupdate|ssh|docker|find|readme|edit) MODE="$1"; shift ;;
     # Admin & Setup Commands
-    setpass|rootsetup|pgtrust|tomcatsetup|initvm|jprofiler) MODE="$1"; shift ;;
+    setpass|rootsetup|pgtrust|pgbackup|tomcatsetup|initvm|jprofiler) MODE="$1"; shift ;;
     # Logging Commands
     viewlog|logview|log|setlogviewer) MODE="$1"; shift ;;
 
@@ -98,7 +98,7 @@ if [ -z "$MODE" ]; then
         echo -e "${BLUE}:: t Automation Suite ::${NC}"
         MODE=$(gum choose --header "Select Operation" \
             "deploy" "ssh" "docker" "edit" "viewlog" \
-            "find" "initvm" "jprofiler" "dnfupdate" "readme")
+            "find" "initvm" "pgbackup" "jprofiler" "dnfupdate" "readme")
 
         if [ -z "$MODE" ]; then echo "Cancelled."; exit 0; fi
     else
@@ -201,6 +201,11 @@ case "$MODE" in
     pgtrust)
         check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
         pg_whitelist_ip "${REMOTE_USER}" "${TARGET_IP}"
+        exit 0
+        ;;
+    pgbackup)
+        check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
+        pg_manage_backups "${REMOTE_USER}" "${TARGET_IP}"
         exit 0
         ;;
     tomcatsetup)

@@ -6,7 +6,7 @@ _t_completion() {
     _init_completion || return
 
     # 1. Main Commands
-    local commands="deploy ssh find dnfupdate setpass rootsetup pgtrust tomcatsetup initvm jprofiler viewlog logview log setlogviewer readme edit docker"
+    local commands="deploy ssh find dnfupdate setpass rootsetup pgtrust pgbackup tomcatsetup initvm jprofiler viewlog logview log setlogviewer readme edit docker"
 
     # 2. Context-Aware Completion
     # Check the main command (always at index 1)
