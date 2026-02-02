@@ -21,7 +21,6 @@ pg_whitelist_ip() {
     local NEW_ENTRY="host    all             all             ${LOCAL_IP}/32            trust"
 
     # 3. Execute Remote Command
-    # Note: We do NOT use ${GREEN} colors inside the remote block to prevent SSH syntax errors.
     ssh "${REMOTE_USER}@${TARGET_IP}" "
         # Check if the specific IP/32 entry already exists
         if grep -qF '${LOCAL_IP}/32' '${PG_CONF}'; then
@@ -65,7 +64,22 @@ pg_manage_backups() {
     if [[ "$ACTION" == "Create Backup" ]]; then
         # === BACKUP LOGIC ===
         local TS=$(date +%Y%m%d_%H%M%S)
-        local FNAME="pg_data_${TS}.tar.gz"
+        local TAG_SUFFIX=""
+
+        # --- NEW: Optional Tagging ---
+        if ui_confirm "Add a custom tag to the filename?"; then
+            local RAW_TAG
+            RAW_TAG=$(ui_input "Enter Tag" "false" "e.g. pre_upgrade")
+
+            # Sanitize: Replace non-alphanumeric chars with underscores to ensure safe filename
+            local CLEAN_TAG=$(echo "$RAW_TAG" | sed 's/[^a-zA-Z0-9_-]/_/g')
+
+            if [ -n "$CLEAN_TAG" ]; then
+                TAG_SUFFIX="_${CLEAN_TAG}"
+            fi
+        fi
+
+        local FNAME="pg_data_${TS}${TAG_SUFFIX}.tar.gz"
 
         echo -e "Target: ${YELLOW}${BACKUP_DIR}/${FNAME}${NC}"
 
