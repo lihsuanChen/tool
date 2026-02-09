@@ -36,7 +36,7 @@ export OCULAN_ROOT OCULAN_LOG_BASE DOCKER_DATA_DEST
 # ================= 5. LOAD MODULES =================
 # Core Libraries
 source "$SCRIPT_DIR/m1_lib_ssh.sh"
-source "$SCRIPT_DIR/m1_lib_ui.sh"  # <--- LOADED UI LIBRARY
+source "$SCRIPT_DIR/m1_lib_ui.sh"
 source "$SCRIPT_DIR/tool_help.sh"
 source "$SCRIPT_DIR/m3_tool_cheatsheet.sh"
 
@@ -49,6 +49,7 @@ source "$SCRIPT_DIR/tool_readme.sh"
 source "$SCRIPT_DIR/tool_viewlog.sh"
 source "$SCRIPT_DIR/tool_edit.sh"
 source "$SCRIPT_DIR/m6_tool_docker_main.sh"
+source "$SCRIPT_DIR/m7_tool_build.sh"  # <--- NEW MODULE
 
 # ================= HELPER: IP RESOLUTION =================
 resolve_target_ip() {
@@ -75,7 +76,7 @@ export SEARCH_LIMIT="$DEFAULT_SEARCH_LIMIT"
 while [[ $# -gt 0 ]]; do
   case $1 in
     # Core Commands
-    deploy|dnfupdate|ssh|docker|find|readme|edit) MODE="$1"; shift ;;
+    deploy|dnfupdate|ssh|docker|find|readme|edit|rpm|build) MODE="$1"; shift ;;
     # Admin & Setup Commands
     setpass|rootsetup|pgtrust|pgbackup|tomcatsetup|initvm|jprofiler) MODE="$1"; shift ;;
     # Logging Commands
@@ -97,7 +98,7 @@ if [ -z "$MODE" ]; then
     if command -v gum &> /dev/null; then
         echo -e "${BLUE}:: t Automation Suite ::${NC}"
         MODE=$(gum choose --header "Select Operation" \
-            "deploy" "ssh" "docker" "edit" "viewlog" \
+            "deploy" "ssh" "docker" "rpm" "edit" "viewlog" \
             "find" "initvm" "pgbackup" "jprofiler" "dnfupdate" "readme")
 
         if [ -z "$MODE" ]; then echo "Cancelled."; exit 0; fi
@@ -115,7 +116,7 @@ EXTRA_ARGS="$IP_SUFFIX" # Fallback if not an IP
 if [ -z "$TARGET_IP" ]; then
     # Commands that DO NOT require an IP
     case "$MODE" in
-        find|readme|setlogviewer|setpass) ;;
+        find|readme|setlogviewer|setpass|rpm|build) ;;
         *)
             # Prompt user
             echo -e "${YELLOW}Target IP required for '$MODE'.${NC}"
@@ -173,10 +174,6 @@ case "$MODE" in
     docker)
         check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
         # Support subcommands like 't docker 105 ps'
-        # If EXTRA_ARGS contains the IP, we need to strip it, but our logic put the IP in TARGET_IP.
-        # We assume EXTRA_ARGS might contain the subcommand if it wasn't just an IP.
-
-        # Simple heuristic: If EXTRA_ARGS matches the IP suffix, clear it.
         if [[ "$EXTRA_ARGS" == "$IP_SUFFIX" ]] && [ -n "$TARGET_IP" ]; then
              EXTRA_ARGS=""
         fi
@@ -187,6 +184,10 @@ case "$MODE" in
         else
             docker_router "$TRIMMED_ARGS" "${REMOTE_USER}" "${TARGET_IP}"
         fi
+        exit 0
+        ;;
+    rpm|build)  # <--- NEW COMMAND
+        build_rpm_in_container
         exit 0
         ;;
     setpass)
@@ -239,7 +240,6 @@ case "$MODE" in
     edit)
         check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
 
-        # FIX: Check if the argument was solely the IP. If so, clear it.
         if [[ "$EXTRA_ARGS" == "$IP_SUFFIX" ]] && [ -n "$TARGET_IP" ]; then
              FINAL_PATH=""
         else
