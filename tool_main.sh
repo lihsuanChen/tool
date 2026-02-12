@@ -49,92 +49,93 @@ source "$SCRIPT_DIR/tool_readme.sh"
 source "$SCRIPT_DIR/tool_viewlog.sh"
 source "$SCRIPT_DIR/tool_edit.sh"
 source "$SCRIPT_DIR/m6_tool_docker_main.sh"
-source "$SCRIPT_DIR/m7_tool_build.sh"  # <--- NEW MODULE
+source "$SCRIPT_DIR/m7_tool_build.sh"
+source "$SCRIPT_DIR/m7_tool_rpm_install.sh"
 
-# ================= HELPER: IP RESOLUTION =================
-resolve_target_ip() {
-    local INPUT=$1
-    if [ -z "$INPUT" ]; then echo ""; return; fi
-
-    if [[ "$INPUT" =~ ^[0-9.]+$ ]] && [[ "$INPUT" =~ [0-9] ]]; then
-        if [[ "$INPUT" == *.* ]]; then
-            echo "$INPUT"
-        else
-            echo "${BASE_IP}.${DEFAULT_SUBNET}.${INPUT}"
-        fi
-    else
-        echo ""
-    fi
-}
-
-# ================= ARGUMENT PARSING =================
-MODE=""
-IP_SUFFIX=""
+# ================= 6. ARGUMENT PARSING VARS =================
+COMMAND=""
+TARGET_IP=""
+declare -a COMMAND_ARGS=()
 export TARGET_VERSION=""
 export SEARCH_LIMIT="$DEFAULT_SEARCH_LIMIT"
 
-while [[ $# -gt 0 ]]; do
-  case $1 in
-    # Core Commands
-    deploy|dnfupdate|ssh|docker|find|readme|edit|rpm|build) MODE="$1"; shift ;;
-    # Admin & Setup Commands
-    setpass|rootsetup|pgtrust|pgbackup|tomcatsetup|initvm|jprofiler) MODE="$1"; shift ;;
-    # Logging Commands
-    viewlog|logview|log|setlogviewer) MODE="$1"; shift ;;
+# ================= 7. HELPER FUNCTIONS =================
 
-    # Flags
-    -f|-v|--version) export TARGET_VERSION="$2"; shift 2 ;;
-    -l|--limit) export SEARCH_LIMIT="$2"; shift 2 ;;
-    -h|--help|--h|-help) print_help; exit 0 ;;
-
-    # Default: Treat as IP part
-    *) if [[ -z "$IP_SUFFIX" ]]; then IP_SUFFIX="$1"; else IP_SUFFIX="$IP_SUFFIX $1"; fi; shift ;;
-  esac
-done
-
-# ================= INTERACTIVE MODE (GUM) =================
-# If no command is provided, launch the Interactive Main Menu
-if [ -z "$MODE" ]; then
-    if command -v gum &> /dev/null; then
-        echo -e "${BLUE}:: t Automation Suite ::${NC}"
-        MODE=$(gum choose --header "Select Operation" \
-            "deploy" "ssh" "docker" "rpm" "edit" "viewlog" \
-            "find" "initvm" "pgbackup" "jprofiler" "dnfupdate" "readme")
-
-        if [ -z "$MODE" ]; then echo "Cancelled."; exit 0; fi
+# Checks if input looks like an IP or a subnet suffix (e.g., 103 or 192.168.1.1)
+is_ip_or_suffix() {
+    local input=$1
+    if [[ "$input" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || [[ "$input" =~ ^[0-9]{1,3}$ ]]; then
+        return 0 # True
     else
-        echo -e "${RED}Error: Missing arguments.${NC}"; print_help; exit 1;
+        return 1 # False
     fi
-fi
+}
 
-# ================= IP RESOLUTION & PROMPT =================
-# 1. Try to resolve from arguments
-TARGET_IP=$(resolve_target_ip "$IP_SUFFIX")
-EXTRA_ARGS="$IP_SUFFIX" # Fallback if not an IP
+# Resolves partial IP (105) to full IP (192.168.78.105) based on config
+resolve_target_ip() {
+    local input=$1
+    if [[ "$input" == *.* ]]; then
+        echo "$input"
+    else
+        echo "${BASE_IP}.${DEFAULT_SUBNET}.${input}"
+    fi
+}
 
-# 2. If IP is invalid/missing but required, prompt for it
-if [ -z "$TARGET_IP" ]; then
-    # Commands that DO NOT require an IP
-    case "$MODE" in
-        find|readme|setlogviewer|setpass|rpm|build) ;;
-        *)
-            # Prompt user
-            echo -e "${YELLOW}Target IP required for '$MODE'.${NC}"
-            RAW_INPUT=$(ui_input "Enter IP (e.g. 105)" "false" "105")
-            TARGET_IP=$(resolve_target_ip "$RAW_INPUT")
+# Hook: Ensures TARGET_IP is set, prompts user via GUI if missing.
+# This allows centralized IP handling for any module that needs it.
+require_ip() {
+    if [ -z "$TARGET_IP" ]; then
+        local RAW_INPUT
+        RAW_INPUT=$(ui_input "Enter Target IP (e.g., 105)" "false")
+        if [ -z "$RAW_INPUT" ]; then
+            error_exit "Target IP is required for this operation."
+        fi
+        TARGET_IP=$(resolve_target_ip "$RAW_INPUT")
+    fi
+    # Export for sub-modules to use
+    export TARGET_IP
+}
 
-            if [ -z "$TARGET_IP" ]; then
-                error_exit "Invalid or missing IP address."
+# ================= 8. MAIN PARSING LOOP =================
+# Strategy: Consume global flags first, then identify Command,
+# then consume IP if present, treating everything else as Args.
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        # --- Global Flags ---
+        -h|--help) print_help; exit 0 ;;
+        -v|--version) export TARGET_VERSION="$2"; shift 2 ;;
+        -l|--limit) export SEARCH_LIMIT="$2"; shift 2 ;;
+
+        # --- Command Detection ---
+        # List of known commands. If COMMAND is not set, the first match becomes the command.
+        deploy|dnfupdate|ssh|docker|find|readme|edit|rpm|build|setpass|rootsetup|pgtrust|pgbackup|tomcatsetup|initvm|jprofiler|viewlog|logview|log|setlogviewer)
+            if [ -z "$COMMAND" ]; then
+                COMMAND="$1"
+            else
+                # If Command is already set (e.g. 't rpm install'), treat 'install' as an argument
+                COMMAND_ARGS+=("$1")
             fi
-            echo -e "Target defined as: ${YELLOW}${TARGET_IP}${NC}"
+            shift
+            ;;
+
+        # --- IP vs Argument Logic ---
+        *)
+            # logic: If TARGET_IP is not yet set, AND the arg looks like an IP/Suffix, consume it as IP.
+            # This fixes 't edit 103' where 103 was previously treated as a file path.
+            if [ -z "$TARGET_IP" ] && is_ip_or_suffix "$1"; then
+                TARGET_IP=$(resolve_target_ip "$1")
+            else
+                # Otherwise, it's a generic argument (file path, search term, sub-command, etc.)
+                COMMAND_ARGS+=("$1")
+            fi
+            shift
             ;;
     esac
-fi
+done
 
-# Export for sub-modules
-export TARGET_IP
-
-# ================= NORMALIZE VERSION =================
+# ================= 9. NORMALIZE VERSION =================
+# Helper to standardize version strings (e.g., v9.3.5 -> 9.3.5 and 935)
 export VERSION_WITH_DOTS=""
 export VERSION_NO_DOTS=""
 if [ -n "$TARGET_VERSION" ]; then
@@ -154,70 +155,157 @@ if [ -n "$TARGET_VERSION" ]; then
     export VERSION_NO_DOTS
 fi
 
-# ================= MAIN SWITCH =================
-case "$MODE" in
+# ================= 10. INTERACTIVE MENU (If No Command) =================
+if [ -z "$COMMAND" ]; then
+    if command -v gum &> /dev/null; then
+        echo -e "${BLUE}:: t Automation Suite ::${NC}"
+        COMMAND=$(gum choose --header "Select Operation" \
+            "deploy" "ssh" "docker" "rpm" "edit" "viewlog" \
+            "find" "initvm" "pgbackup" "jprofiler" "dnfupdate" "readme")
+
+        if [ -z "$COMMAND" ]; then echo "Cancelled."; exit 0; fi
+    else
+        echo -e "${RED}Error: Missing arguments.${NC}"; print_help; exit 1;
+    fi
+fi
+
+# ================= 11. COMMAND DISPATCHER =================
+# Join COMMAND_ARGS array into a string for passing to functions
+FINAL_ARGS="${COMMAND_ARGS[*]}"
+
+case "$COMMAND" in
     deploy)
+        require_ip
         check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
         log_step "MAIN" "Starting Deployment Process..."
         bash "$SCRIPT_DIR/m5_process_deploy.sh"
         ;;
+
     dnfupdate)
+        require_ip
         check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
         log_step "MAIN" "Starting DNF Update Process..."
         bash "$SCRIPT_DIR/m2_process_dnfupdate.sh"
         ;;
+
     ssh)
+        require_ip
         log_step "MAIN" "Checking Connection..."
         check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
         ssh "${REMOTE_USER}@${TARGET_IP}"
         ;;
-    docker)
-        check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
-        # Support subcommands like 't docker 105 ps'
-        if [[ "$EXTRA_ARGS" == "$IP_SUFFIX" ]] && [ -n "$TARGET_IP" ]; then
-             EXTRA_ARGS=""
-        fi
 
-        TRIMMED_ARGS=$(echo "$EXTRA_ARGS" | xargs)
-        if [ -z "$TRIMMED_ARGS" ]; then
+    docker)
+        require_ip
+        check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
+
+        # If no sub-command passed in args, show interactive menu
+        if [ -z "$FINAL_ARGS" ]; then
             show_docker_menu "${REMOTE_USER}" "${TARGET_IP}"
         else
-            docker_router "$TRIMMED_ARGS" "${REMOTE_USER}" "${TARGET_IP}"
+            docker_router "$FINAL_ARGS" "${REMOTE_USER}" "${TARGET_IP}"
         fi
         exit 0
         ;;
-    rpm|build)  # <--- NEW COMMAND
-        build_rpm_in_container
+
+    rpm|build)
+        # --- RPM/Build Router ---
+        SUB_CMD=""
+
+        # Check args for explicit 'install' or 'build'
+        if [[ "$FINAL_ARGS" == *"install"* ]]; then SUB_CMD="install"; fi
+        if [[ "$FINAL_ARGS" == *"build"* ]]; then SUB_CMD="build"; fi
+
+        # Handle alias 't build'
+        if [[ "$COMMAND" == "build" ]]; then SUB_CMD="build"; fi
+
+        # If undetermined, ask user
+        if [ -z "$SUB_CMD" ]; then
+            SUB_CMD=$(ui_choose "Build RPM (Container)" "Install RPM (Remote)" "Cancel")
+        fi
+
+        case "$SUB_CMD" in
+            "build"|"Build"*)
+                # Build happens locally/in-container, usually no IP needed
+                build_rpm_in_container
+                ;;
+            "install"|"Install"*)
+                # Install requires IP
+                require_ip
+                check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
+                install_rpm_remote "${REMOTE_USER}" "${TARGET_IP}"
+                ;;
+            *)
+                echo "Cancelled."
+                ;;
+        esac
         exit 0
         ;;
+
+    edit)
+        require_ip
+        check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
+        # FINAL_ARGS contains the file path (if any).
+        # If 't edit 103' was used, 103 is consumed as TARGET_IP, so FINAL_ARGS is empty.
+        # edit_remote_file handles empty args by showing the history menu.
+        edit_remote_file "${REMOTE_USER}" "${TARGET_IP}" "$FINAL_ARGS"
+        exit 0
+        ;;
+
+    viewlog|logview|log)
+        require_ip
+        check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
+        view_remote_log_gui "${REMOTE_USER}" "${TARGET_IP}"
+        exit 0
+        ;;
+
+    find)
+        # 'find' uses args as search query. No IP required.
+        cmd_search "$FINAL_ARGS"
+        exit 0
+        ;;
+
+    readme)
+        # Display docs. No IP required.
+        show_readme "$SCRIPT_DIR" "$FINAL_ARGS"
+        exit 0
+        ;;
+
+    # --- Admin & Setup Commands ---
     setpass)
+        require_ip
         ensure_bridge_password "true" "$TARGET_IP"
         exit 0
         ;;
     rootsetup)
+        require_ip
         ensure_bridge_password "false" "$TARGET_IP"
         setup_root_creds "${BRIDGE_USER}" "${TARGET_IP}"
         exit 0
         ;;
     pgtrust)
+        require_ip
         check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
         pg_whitelist_ip "${REMOTE_USER}" "${TARGET_IP}"
         exit 0
         ;;
     pgbackup)
+        require_ip
         check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
         pg_manage_backups "${REMOTE_USER}" "${TARGET_IP}"
         exit 0
         ;;
     tomcatsetup)
+        require_ip
         check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
         enable_tomcat_debug "${REMOTE_USER}" "${TARGET_IP}"
         exit 0
         ;;
     jprofiler)
+        require_ip
         check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
-        TRIMMED_ARGS=$(echo "$EXTRA_ARGS" | xargs)
-        if [[ "$TRIMMED_ARGS" == "off" ]] || [[ "$TRIMMED_ARGS" == "detach" ]]; then
+        # Support sub-commands 'off' or 'detach'
+        if [[ "$FINAL_ARGS" == "off" ]] || [[ "$FINAL_ARGS" == "detach" ]]; then
             disable_jprofiler_remote "${REMOTE_USER}" "${TARGET_IP}"
         else
             setup_jprofiler_remote "${REMOTE_USER}" "${TARGET_IP}"
@@ -225,40 +313,19 @@ case "$MODE" in
         exit 0
         ;;
     initvm)
+        require_ip
         run_init_vm_flow "${REMOTE_USER}" "${TARGET_IP}" "${BRIDGE_USER}"
         exit 0
         ;;
-    viewlog|logview|log)
-        check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
-        view_remote_log_gui "${REMOTE_USER}" "${TARGET_IP}"
-        exit 0
-        ;;
     setlogviewer)
+        # Local preference config
         switch_log_viewer
         exit 0
         ;;
-    edit)
-        check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
 
-        if [[ "$EXTRA_ARGS" == "$IP_SUFFIX" ]] && [ -n "$TARGET_IP" ]; then
-             FINAL_PATH=""
-        else
-             FINAL_PATH="${EXTRA_ARGS}"
-        fi
-
-        # Allow version override to act as path if path is empty
-        if [ -z "$FINAL_PATH" ] && [ -n "$TARGET_VERSION" ]; then FINAL_PATH="$TARGET_VERSION"; fi
-
-        edit_remote_file "${REMOTE_USER}" "${TARGET_IP}" "${FINAL_PATH}"
-        exit 0
+    *)
+        echo -e "${RED}Error: Unknown command '$COMMAND'${NC}"
+        print_help
+        exit 1
         ;;
-    find)
-        cmd_search "$IP_SUFFIX"
-        exit 0
-        ;;
-    readme)
-        show_readme "$SCRIPT_DIR" "$IP_SUFFIX"
-        exit 0
-        ;;
-    *) echo -e "${RED}Error: Unknown command '$MODE'${NC}"; exit 1 ;;
 esac
