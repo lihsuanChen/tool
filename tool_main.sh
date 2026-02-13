@@ -20,6 +20,8 @@ if [ -f "$USER_CONFIG" ]; then source "$USER_CONFIG"; fi
 # ================= 4. EXPORT GLOBAL STATE =================
 # Core Variables
 export REMOTE_USER BRIDGE_USER AUTH_FILE CMD_LIBRARY BASE_IP DEFAULT_SUBNET LOCAL_DNF_SCRIPT DEFAULT_SEARCH_LIMIT
+# Initialize Local Mode Flag (Default is false)
+export IS_LOCAL_MODE="false"
 
 # System Services & Names (Centralized)
 export TOMCAT_SERVICE TOMCAT_APP_NAME PG_SERVICE
@@ -37,6 +39,7 @@ export OCULAN_ROOT OCULAN_LOG_BASE DOCKER_DATA_DEST
 # Core Libraries
 source "$SCRIPT_DIR/m1_lib_ssh.sh"
 source "$SCRIPT_DIR/m1_lib_ui.sh"
+source "$SCRIPT_DIR/m1_lib_exec.sh" # Load Execution Abstraction
 source "$SCRIPT_DIR/tool_help.sh"
 source "$SCRIPT_DIR/m3_tool_cheatsheet.sh"
 
@@ -61,6 +64,16 @@ export SEARCH_LIMIT="$DEFAULT_SEARCH_LIMIT"
 
 # ================= 7. HELPER FUNCTIONS =================
 
+# Checks if input is 'local', 'localhost', or '.'
+is_local_target() {
+    local input=$1
+    if [[ "$input" == "localhost" ]] || [[ "$input" == "local" ]] || [[ "$input" == "." ]]; then
+        return 0 # True
+    else
+        return 1 # False
+    fi
+}
+
 # Checks if input looks like an IP or a subnet suffix (e.g., 103 or 192.168.1.1)
 is_ip_or_suffix() {
     local input=$1
@@ -71,8 +84,9 @@ is_ip_or_suffix() {
     fi
 }
 
-# Resolves partial IP (105) to full IP (192.168.78.105) based on config
-resolve_target_ip() {
+# Resolves partial IP to full IP.
+# NOTE: Does NOT handle Local Mode side-effects anymore to avoid subshell scoping issues.
+resolve_target_ip_string() {
     local input=$1
     if [[ "$input" == *.* ]]; then
         echo "$input"
@@ -82,15 +96,21 @@ resolve_target_ip() {
 }
 
 # Hook: Ensures TARGET_IP is set, prompts user via GUI if missing.
-# This allows centralized IP handling for any module that needs it.
 require_ip() {
     if [ -z "$TARGET_IP" ]; then
         local RAW_INPUT
-        RAW_INPUT=$(ui_input "Enter Target IP (e.g., 105)" "false")
+        RAW_INPUT=$(ui_input "Enter Target IP (or 'local')" "false")
         if [ -z "$RAW_INPUT" ]; then
             error_exit "Target IP is required for this operation."
         fi
-        TARGET_IP=$(resolve_target_ip "$RAW_INPUT")
+
+        # [FIX] Set variables in current shell scope
+        if is_local_target "$RAW_INPUT"; then
+            export IS_LOCAL_MODE="true"
+            TARGET_IP="127.0.0.1"
+        else
+            TARGET_IP=$(resolve_target_ip_string "$RAW_INPUT")
+        fi
     fi
     # Export for sub-modules to use
     export TARGET_IP
@@ -98,7 +118,7 @@ require_ip() {
 
 # ================= 8. MAIN PARSING LOOP =================
 # Strategy: Consume global flags first, then identify Command,
-# then consume IP if present, treating everything else as Args.
+# then consume IP (or Local keyword) if present, treating everything else as Args.
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -108,12 +128,10 @@ while [[ $# -gt 0 ]]; do
         -l|--limit) export SEARCH_LIMIT="$2"; shift 2 ;;
 
         # --- Command Detection ---
-        # List of known commands. If COMMAND is not set, the first match becomes the command.
         deploy|dnfupdate|ssh|docker|find|readme|edit|rpm|build|setpass|rootsetup|pgtrust|pgbackup|tomcatsetup|initvm|jprofiler|viewlog|logview|log|setlogviewer)
             if [ -z "$COMMAND" ]; then
                 COMMAND="$1"
             else
-                # If Command is already set (e.g. 't rpm install'), treat 'install' as an argument
                 COMMAND_ARGS+=("$1")
             fi
             shift
@@ -121,12 +139,17 @@ while [[ $# -gt 0 ]]; do
 
         # --- IP vs Argument Logic ---
         *)
-            # logic: If TARGET_IP is not yet set, AND the arg looks like an IP/Suffix, consume it as IP.
-            # This fixes 't edit 103' where 103 was previously treated as a file path.
-            if [ -z "$TARGET_IP" ] && is_ip_or_suffix "$1"; then
-                TARGET_IP=$(resolve_target_ip "$1")
+            # [FIXED LOGIC] Check for IP OR Local Target explicitly in parent shell
+            if [ -z "$TARGET_IP" ]; then
+                if is_local_target "$1"; then
+                    export IS_LOCAL_MODE="true"
+                    TARGET_IP="127.0.0.1"
+                elif is_ip_or_suffix "$1"; then
+                    TARGET_IP=$(resolve_target_ip_string "$1")
+                else
+                    COMMAND_ARGS+=("$1")
+                fi
             else
-                # Otherwise, it's a generic argument (file path, search term, sub-command, etc.)
                 COMMAND_ARGS+=("$1")
             fi
             shift
@@ -135,7 +158,6 @@ while [[ $# -gt 0 ]]; do
 done
 
 # ================= 9. NORMALIZE VERSION =================
-# Helper to standardize version strings (e.g., v9.3.5 -> 9.3.5 and 935)
 export VERSION_WITH_DOTS=""
 export VERSION_NO_DOTS=""
 if [ -n "$TARGET_VERSION" ]; then
@@ -170,13 +192,15 @@ if [ -z "$COMMAND" ]; then
 fi
 
 # ================= 11. COMMAND DISPATCHER =================
-# Join COMMAND_ARGS array into a string for passing to functions
 FINAL_ARGS="${COMMAND_ARGS[*]}"
 
 case "$COMMAND" in
     deploy)
         require_ip
-        check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
+        # Only check SSH connectivity if NOT in local mode
+        if [ "$IS_LOCAL_MODE" != "true" ]; then
+            check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
+        fi
         log_step "MAIN" "Starting Deployment Process..."
         bash "$SCRIPT_DIR/m5_process_deploy.sh"
         ;;
@@ -197,9 +221,11 @@ case "$COMMAND" in
 
     docker)
         require_ip
-        check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
+        # Skip SSH check for local mode
+        if [ "$IS_LOCAL_MODE" != "true" ]; then
+            check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
+        fi
 
-        # If no sub-command passed in args, show interactive menu
         if [ -z "$FINAL_ARGS" ]; then
             show_docker_menu "${REMOTE_USER}" "${TARGET_IP}"
         else
@@ -209,30 +235,24 @@ case "$COMMAND" in
         ;;
 
     rpm|build)
-        # --- RPM/Build Router ---
         SUB_CMD=""
-
-        # Check args for explicit 'install' or 'build'
         if [[ "$FINAL_ARGS" == *"install"* ]]; then SUB_CMD="install"; fi
         if [[ "$FINAL_ARGS" == *"build"* ]]; then SUB_CMD="build"; fi
-
-        # Handle alias 't build'
         if [[ "$COMMAND" == "build" ]]; then SUB_CMD="build"; fi
 
-        # If undetermined, ask user
         if [ -z "$SUB_CMD" ]; then
             SUB_CMD=$(ui_choose "Build RPM (Container)" "Install RPM (Remote)" "Cancel")
         fi
 
         case "$SUB_CMD" in
             "build"|"Build"*)
-                # Build happens locally/in-container, usually no IP needed
                 build_rpm_in_container
                 ;;
             "install"|"Install"*)
-                # Install requires IP
                 require_ip
-                check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
+                if [ "$IS_LOCAL_MODE" != "true" ]; then
+                    check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
+                fi
                 install_rpm_remote "${REMOTE_USER}" "${TARGET_IP}"
                 ;;
             *)
@@ -245,9 +265,6 @@ case "$COMMAND" in
     edit)
         require_ip
         check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
-        # FINAL_ARGS contains the file path (if any).
-        # If 't edit 103' was used, 103 is consumed as TARGET_IP, so FINAL_ARGS is empty.
-        # edit_remote_file handles empty args by showing the history menu.
         edit_remote_file "${REMOTE_USER}" "${TARGET_IP}" "$FINAL_ARGS"
         exit 0
         ;;
@@ -260,18 +277,15 @@ case "$COMMAND" in
         ;;
 
     find)
-        # 'find' uses args as search query. No IP required.
         cmd_search "$FINAL_ARGS"
         exit 0
         ;;
 
     readme)
-        # Display docs. No IP required.
         show_readme "$SCRIPT_DIR" "$FINAL_ARGS"
         exit 0
         ;;
 
-    # --- Admin & Setup Commands ---
     setpass)
         require_ip
         ensure_bridge_password "true" "$TARGET_IP"
@@ -304,7 +318,6 @@ case "$COMMAND" in
     jprofiler)
         require_ip
         check_and_setup_ssh "${REMOTE_USER}" "${TARGET_IP}"
-        # Support sub-commands 'off' or 'detach'
         if [[ "$FINAL_ARGS" == "off" ]] || [[ "$FINAL_ARGS" == "detach" ]]; then
             disable_jprofiler_remote "${REMOTE_USER}" "${TARGET_IP}"
         else
@@ -318,7 +331,6 @@ case "$COMMAND" in
         exit 0
         ;;
     setlogviewer)
-        # Local preference config
         switch_log_viewer
         exit 0
         ;;

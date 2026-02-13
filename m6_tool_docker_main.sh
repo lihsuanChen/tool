@@ -5,16 +5,16 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/m6_docker_install.sh"
 source "$SCRIPT_DIR/m6_docker_deploy.sh"
 source "$SCRIPT_DIR/m6_docker_optimize.sh"
+source "$SCRIPT_DIR/m1_lib_exec.sh" # [NEW] Ensure exec lib is available
 
 # ================= MENU FUNCTION =================
 show_docker_menu() {
     local REMOTE_USER=$1
     local TARGET_IP=$2
 
-    echo -e "${YELLOW}Docker Actions for ${TARGET_IP}:${NC}"
+    echo -e "${YELLOW}Docker Actions for ${TARGET_IP} (Local Mode: ${IS_LOCAL_MODE}):${NC}"
 
-    # === GUM MENU ONLY (Legacy 'read' removed) ===
-    # We use gum choose for a robust selection menu
+    # === GUM MENU ONLY ===
     ACTION=$(gum choose \
         "1. Install Docker Platform" \
         "2. Deploy Environment (Pull Images & Configs)" \
@@ -22,16 +22,14 @@ show_docker_menu() {
         "4. Optimize Storage (Fix 'No Space')" \
         "0. Cancel")
 
-    # Guard against ctrl+c
     if [ -z "$ACTION" ]; then echo "Cancelled."; exit 0; fi
 
-    # Extract just the first character (1, 2, 3...)
     ACTION_CHOICE="${ACTION:0:1}"
 
     case "$ACTION_CHOICE" in
         1) install_docker_remote "$REMOTE_USER" "$TARGET_IP" ;;
-        2) deploy_docker_env "$REMOTE_USER" "$TARGET_IP" ;;     # Calls Function 1
-        3) deploy_app_code "$REMOTE_USER" "$TARGET_IP" ;;       # Calls Function 2
+        2) deploy_docker_env "$REMOTE_USER" "$TARGET_IP" ;;     # Calls Function
+        3) deploy_app_code "$REMOTE_USER" "$TARGET_IP" ;;       # Calls Router
         4) optimize_docker_storage "$REMOTE_USER" "$TARGET_IP" ;;
         0) echo "Cancelled."; exit 0 ;;
         *) echo -e "${RED}Invalid selection.${NC}"; exit 1 ;;
@@ -52,7 +50,8 @@ docker_router() {
         optimize)      optimize_docker_storage "$REMOTE_USER" "$TARGET_IP" ;;
         ps|ls)
             log_step "DOCKER" "Checking running containers..."
-            ssh "$REMOTE_USER@$TARGET_IP" "sudo docker ps --format 'table {{.ID}}\t{{.Names}}\t{{.Status}}\t{{.Ports}}'"
+            # [MODIFIED] Use run_remote_cmd abstraction
+            run_remote_cmd "$REMOTE_USER" "$TARGET_IP" "sudo docker ps --format 'table {{.ID}}\t{{.Names}}\t{{.Status}}\t{{.Ports}}'"
             ;;
         *)
             echo -e "${RED}Error: Unknown subcommand '$SUBCOMMAND'${NC}"

@@ -5,6 +5,10 @@
 # DESCRIPTION: Sets up the base platform, pulls images, and starts containers.
 # ==============================================================================
 
+# Ensure execution abstraction is loaded
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/m1_lib_exec.sh"
+
 deploy_docker_env() {
     local REMOTE_USER=$1
     local TARGET_IP=$2
@@ -19,7 +23,7 @@ deploy_docker_env() {
     local REMOTE_CONFIG_DIR="${REMOTE_ROOT}/platform/Docker/Dev"
     local REMOTE_APP_BASE="${DOCKER_APP_MOUNT:-/dct_builds/dctrack_app}"
 
-    log_step "ENV-DEPLOY" "Setting up Environment on ${TARGET_IP}..."
+    log_step "ENV-DEPLOY" "Setting up Environment on ${TARGET_IP} (Local Mode: ${IS_LOCAL_MODE})..."
 
     # 1. Validation
     if [ ! -d "$LOCAL_PLATFORM_DIR" ]; then error_exit "Platform dir missing: $LOCAL_PLATFORM_DIR"; fi
@@ -56,20 +60,47 @@ deploy_docker_env() {
     fi
 
     # 3. Prepare Remote
-    echo "Preparing remote structure..."
-    ssh "${REMOTE_USER}@${TARGET_IP}" "sudo mkdir -p ${REMOTE_ROOT} ${REMOTE_APP_BASE}"
+    run_remote_cmd "${REMOTE_USER}" "${TARGET_IP}" "sudo mkdir -p ${REMOTE_ROOT} ${REMOTE_APP_BASE}" "false"
 
     # 4. Sync Platform
     echo "Uploading Platform folder..."
-    rsync -avz -e ssh --delete "${LOCAL_PLATFORM_DIR}" "${REMOTE_USER}@${TARGET_IP}:${REMOTE_ROOT}/"
+    sync_to_target "${LOCAL_PLATFORM_DIR}" "${REMOTE_USER}" "${TARGET_IP}" "${REMOTE_ROOT}/" "--delete"
 
     # 5. Inject env.dev
     echo "Injecting env.dev..."
-    rsync -avz -e ssh "${LOCAL_ENV_DIR}/env.dev" "${REMOTE_USER}@${TARGET_IP}:${REMOTE_CONFIG_DIR}/env.dev"
+    sync_to_target "${LOCAL_ENV_DIR}/env.dev" "${REMOTE_USER}" "${TARGET_IP}" "${REMOTE_CONFIG_DIR}/env.dev"
+
+    # ==============================================================================
+    # [FIX] Local Mode Permission Patch (Robust Version)
+    # ==============================================================================
+    if [ "$IS_LOCAL_MODE" == "true" ]; then
+        log_step "FIX-PERMS" "Fixing ownership for Local Mode access..."
+
+        # 1. Refresh sudo credentials
+        if command -v sudo &> /dev/null; then
+            echo -e "${YELLOW}[Local] Refreshing sudo credentials...${NC}"
+            sudo -v
+        fi
+
+        # 2. Resolve IDs
+        local MY_UID=$(id -u)
+        local MY_GID=$(id -g)
+
+        # 3. Optimization: Only chown if owner is different
+        # This avoids running a heavy sudo command if not needed
+        local CURRENT_OWNER
+        CURRENT_OWNER=$(stat -c '%u:%g' "${REMOTE_ROOT}" 2>/dev/null)
+
+        if [ "$CURRENT_OWNER" != "${MY_UID}:${MY_GID}" ]; then
+            echo "Ownership mismatch ($CURRENT_OWNER vs ${MY_UID}:${MY_GID}). Applying fix..."
+            run_remote_cmd "${REMOTE_USER}" "${TARGET_IP}" "sudo chown -R ${MY_UID}:${MY_GID} ${REMOTE_ROOT}" "false"
+        else
+            echo "Ownership is correct. Skipping chown."
+        fi
+    fi
 
     # 6. Remote Execution
-    # FIX: Added BUILDKIT_PROGRESS=plain to fix TTY scrolling issues
-    ssh -t "${REMOTE_USER}@${TARGET_IP}" "
+    local REMOTE_CMDS="
         export BUILDKIT_PROGRESS=plain
         set -e
         cd ${REMOTE_CONFIG_DIR}
@@ -81,13 +112,14 @@ deploy_docker_env() {
 
         # --- CONFIGURATION ---
         echo '[Remote] Configuring docker-compose.yml...'
-        # Default: Enable Image, Disable Server Volume
         sed -i '/tomcat_asset_service/s/^ *# *image/    image/' docker-compose.yml
         sed -i '\|/dct_builds/dctrack_app/server/dcTrackApp/target/dcTrackApp|s/^\( *\)- /\1# - /' docker-compose.yml
-        # Default: Disable Client Volume
         sed -i '\|/dct_builds/dctrack_app_client/dist|s/^\( *\)- /\1# - /' docker-compose.yml
 
+        # Symlink if needed
         if [ ! -L /platform ] && [ ! -d /platform ]; then sudo ln -sfn ${REMOTE_ROOT}/platform /platform; fi
+
+        # Ensure permissions for mapped volumes
         sudo chown -R 1000:1000 ${REMOTE_APP_BASE}
         sudo chmod -R 755 ${REMOTE_APP_BASE}
 
@@ -96,10 +128,13 @@ deploy_docker_env() {
 
         if [ \"$USE_LATEST\" == \"true\" ]; then
             sed -i 's/^getLatestRelease=.*/getLatestRelease=true/' .env
-            if ! command -v jq &> /dev/null; then sudo dnf install -y jq || sudo apt-get install -y jq; fi
-            chmod +x pullLatestDockerVersion
 
-            # This script will now inherit BUILDKIT_PROGRESS=plain
+            if ! command -v jq &> /dev/null; then
+                if command -v dnf &> /dev/null; then sudo dnf install -y jq;
+                elif command -v apt-get &> /dev/null; then sudo apt-get install -y jq; fi
+            fi
+
+            chmod +x pullLatestDockerVersion
             ./pullLatestDockerVersion
         else
             sed -i 's/^getLatestRelease=.*/getLatestRelease=false/' .env
@@ -110,6 +145,8 @@ deploy_docker_env() {
         echo '[Remote] Starting Environment...'
         sudo docker compose up -d
     "
+
+    run_remote_cmd "${REMOTE_USER}" "${TARGET_IP}" "${REMOTE_CMDS}" "true"
 
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}SUCCESS: Environment Deployed!${NC}"
